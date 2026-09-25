@@ -1,4 +1,4 @@
-# Патчер и история версий — не публикуем
+# Патчеры и история версий
 .patch-backups/
 **/.patch-backups/
 tools/
@@ -14,6 +14,10 @@ ROADMAP.txt
 # Дев-превью
 previews/
 **/previews/
+
+# Справка для чата
+CONTEXT.txt
+CONTEXT.md
 
 # Мусор
 node_modules/

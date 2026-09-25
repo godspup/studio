@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+<title>Шпион</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: #0f1115; color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
+  #app { padding: 12px 16px; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+  h1 { font-size: 22px; margin: 6px 0 12px; text-align: center; }
+  .btn { display: block; width: 100%; padding: 13px; background: #2a2f3a; color: #fff; border: none;
+    border-radius: 12px; font-size: 16px; font-weight: 600; margin-bottom: 8px; cursor: pointer; }
+  .btn:active { background: #3a4050; }
+  .btn.primary { background: #4a7cff; }
+  .btn.primary:active { background: #3a6ce0; }
+  .btn.danger { background: #d94a4a; }
+  .btn.ghost { background: transparent; border: 1px solid #2a2f3a; }
+  .btn.small { padding: 9px; font-size: 14px; }
+  .btn:disabled { opacity: 0.5; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row .btn { margin-bottom: 0; }
+  input, textarea { width: 100%; padding: 12px; background: #1a1e27; color: #fff;
+    border: 1px solid #2a2f3a; border-radius: 10px; font-size: 16px; font-family: inherit; }
+  textarea { min-height: 180px; resize: vertical; }
+  .spacer { flex: 1; }
+  .card { background: #1a1e27; border-radius: 14px; padding: 14px; margin-bottom: 10px; }
+  .center { text-align: center; }
+  .big { font-size: 22px; font-weight: 700; margin: 6px 0; }
+  .muted { color: #888; font-size: 13px; }
+  .role-card { background: linear-gradient(135deg, #4a7cff, #7a4aff); border-radius: 16px;
+    padding: 30px 20px; text-align: center; margin: 12px 0; }
+  .role-card.spy { background: linear-gradient(135deg, #d94a4a, #8a1a1a); }
+  .role-label { font-size: 13px; opacity: .8; margin-bottom: 8px; letter-spacing: 2px; }
+  .role-value { font-size: 28px; font-weight: 800; word-break: break-word; }
+  .timer { font-size: 44px; font-weight: 800; text-align: center; margin: 8px 0; font-variant-numeric: tabular-nums; }
+  .timer.warn { color: #ff6b6b; }
+  .player-list { display: grid; gap: 8px; }
+  .player-item { padding: 12px; background: #1a1e27; border-radius: 10px;
+    border: 1px solid #2a2f3a; text-align: center; font-size: 15px; cursor: pointer; }
+  .player-item.selected { background: #4a7cff; border-color: #4a7cff; }
+  .theme-item { padding: 13px; background: #1a1e27; border-radius: 10px;
+    border: 1px solid #2a2f3a; margin-bottom: 8px; display: flex; justify-content: space-between;
+    align-items: center; cursor: pointer; }
+  .theme-item.active { border-color: #4a7cff; }
+  .theme-item .name { font-weight: 600; }
+  .theme-item .count { color: #888; font-size: 13px; }
+  .code-box { font-family: ui-monospace, monospace; font-size: 40px; font-weight: 800; letter-spacing: 6px;
+    text-align: center; padding: 18px; background: #1a1e27; border-radius: 14px; margin: 10px 0;
+    color: #4a7cff; border: 2px dashed #4a7cff; min-height: 78px;
+    display: flex; align-items: center; justify-content: center; }
+  .status-line { text-align: center; margin: 6px 0 12px; font-size: 14px; }
+  .status-ok { color: #4caf50; }
+  .status-wait { color: #ffb74d; }
+  .status-err { color: #ff6b6b; }
+  .chat-container { display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 200px;
+    background: transparent; border-radius: 12px; overflow: hidden; margin: 6px 0; }
+  .chat-messages { flex: 1 1 auto; overflow-y: auto; padding: 10px;
+    display: flex; flex-direction: column; gap: 6px; font-size: 14px; -webkit-overflow-scrolling: touch; }
+  .chat-msg { padding: 8px 12px; border-radius: 10px; background: rgba(42,47,58,0.85); max-width: 85%;
+    word-wrap: break-word; align-self: flex-start; backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px); }
+  .chat-msg.me { background: rgba(74,124,255,0.9); align-self: flex-end; }
+  .chat-msg .who { font-size: 11px; color: #bbb; display: block; margin-bottom: 2px; }
+  .chat-msg.me .who { color: #dde; }
+  .chat-input-row { display: flex; gap: 6px; padding: 8px; background: rgba(15,17,21,0.4);
+    border-top: 1px solid #2a2f3a; flex-shrink: 0;
+    border-radius: 0 0 12px 12px; backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px); }
+  .chat-input-row input { flex: 1; padding: 10px; font-size: 16px; border-radius: 10px; }
+  .chat-input-row button { padding: 0 16px; font-size: 18px; font-weight: 700;
+    background: #4a7cff; color: #fff; border: none; border-radius: 10px; cursor: pointer; flex-shrink: 0; }
+  .spinner { width: 44px; height: 44px; margin: 20px auto; border: 4px solid #2a2f3a;
+    border-top-color: #4a7cff; border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pulse { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+  .debug { font-family: ui-monospace, monospace; font-size: 10px; color: #666;
+    padding: 6px; background: #0a0d12; border-radius: 8px; margin-top: 6px; line-height: 1.4; }
+  .stale { color: #888; font-size: 12px; }
+  .home-btn {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    width: 40px; height: 40px;
+    background: rgba(42,47,58,0.95);
+    color: #fff; border: 1px solid #3a4050;
+    border-radius: 12px; font-size: 20px; font-weight: 700;
+    cursor: pointer; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; padding-bottom: 3px;
+  }
+  .home-btn:active { background: #4a7cff; }
+  .checkbox-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 13px; background: #1a1e27; border-radius: 10px;
+    margin: 6px 0 12px; cursor: pointer; border: 1px solid #2a2f3a;
+  }
+  .checkbox-row input[type=checkbox] { width: 20px; height: 20px; padding: 0; margin: 0; flex: 0 0 auto; accent-color: #4a7cff; }
+  .checkbox-row span { font-size: 15px; color: #ddd; }
+  .sound-btn { position:fixed; right:calc(10px + env(safe-area-inset-right,0px)); top:calc(10px + env(safe-area-inset-top,0px)); width:40px;height:40px;z-index:1001;border:1px solid #303746;border-radius:12px;background:rgba(20,24,32,.88);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.25);padding:0; }
+  .sound-btn svg{display:block;width:20px;height:20px}
+  .sound-btn.muted{color:#8a93a8}
+  #asciiBg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;font:14px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;mix-blend-mode:screen}
+  .ascii-p{position:absolute;will-change:transform,opacity;font-weight:700}
+  .ascii-p span{display:block;animation:neonPulse 1.8s ease-in-out infinite alternate}
+  @keyframes neonPulse{
+    0%{text-shadow:0 0 4px currentColor,0 0 8px currentColor;filter:brightness(.85)}
+    100%{text-shadow:0 0 10px currentColor,0 0 22px currentColor,0 0 36px currentColor;filter:brightness(1.3)}
+  }
+  #app { position:relative; z-index:1; }
+  @keyframes screenIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  #app > * { animation:screenIn .28s ease-out both; }
+  button { transition:transform .12s ease,filter .12s ease; }
+  button:active { transform:scale(.97); }
+  .chat-messages > div { animation:chatIn .22s ease-out both; }
+  @keyframes chatIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+  .chat-input-row input { min-width:0; }
+</style>
+</head>
+<body>
+<button id="homeBtn" class="home-btn" style="display:none" onclick="goHome()" title="В главное меню">←</button>
+<div id="asciiBg" aria-hidden="true"></div><div id="app"></div><button id="soundBtn" class="sound-btn" onclick="toggleSound()" title="Звук" aria-label="Звук"></button>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const MQTT_HOST = 'broker.emqx.io';
+const MQTT_PORT = 8084;
+const MQTT_PATH = '/mqtt';
+const MQTT_PREFIX = 'spyx12';
+
+function tHost(code)      { return MQTT_PREFIX + '/' + code + '/h'; }
+function tAll(code)       { return MQTT_PREFIX + '/' + code + '/a'; }
+function tHB(code)        { return MQTT_PREFIX + '/' + code + '/hb'; }
+function tGuest(code,gid) { return MQTT_PREFIX + '/' + code + '/g/' + gid; }
+function tHello(code,gid) { return MQTT_PREFIX + '/' + code + '/hel/' + gid; }
+function tHelloWild(code) { return MQTT_PREFIX + '/' + code + '/hel/+'; }
+function helloPrefix(code){ return MQTT_PREFIX + '/' + code + '/hel/'; }
+
+const DEFAULT_THEMES = [
+  { id: 'loc', name: 'Локации', items: [
+    "Больница","Аэропорт","Ресторан","Кинотеатр","Пляж","Школа","Тюрьма","Космическая станция",
+    "Цирк","Библиотека","Парикмахерская","Самолёт","Поезд","Метро","Офис","Свадьба","Похороны",
+    "Спортзал","Супермаркет","Банк","Полицейский участок","Театр","Музей","Зоопарк","Отель","Казино",
+    "Круизный лайнер","Подводная лодка","Стройка","Ферма"
+  ]},
+  { id: 'per', name: 'Персонажи', items: [
+    "Врач","Учитель","Полицейский","Повар","Пилот","Водитель такси","Программист","Блогер",
+    "Фотограф","Пожарный","Космонавт","Боксёр","Балерина","Официант","Кассир","Парикмахер",
+    "Садовник","Детектив"
+  ]},
+  { id: 'evt', name: 'События', items: [
+    "Свадьба","Похороны","Выпускной","Новый год","День рождения","Концерт","Футбольный матч",
+    "Собеседование","Суд","Ограбление","Спасение из пожара","Первое свидание","Развод","Роды"
+  ]}
+];
+
+const S = {
+  screen: 'menu',
+  themes: loadThemes(),
+  editingThemeId: null,
+  pp: { players: [], roles: [], currentIndex: 0, revealed: false,
+        spyIndex: -1, location: '', votes: {}, lastResult: null,
+        useTimer: false },
+  timer: { id: null, endsAt: 0, left: 0 },
+  online: {
+    client: null, connected: false, role: null,
+    code: '', myName: '', hostName: '', myGuestId: null,
+    hostOnline: false, lastHostPing: 0,
+    players: [], phase: 'lobby',
+    myRole: null, playerRoles: {},
+    readyPlayers: [], lastReadyAt: 0, myReadySent: false,
+    chat: [], chatSeen: new Set(), requestState: false, endsAt: 0,
+    useTimer: false,
+    votes: {}, myVote: null,
+    result: null, revealed: false,
+    spyIndex: -1, location: '',
+    connecting: false, connectError: '',
+    heartbeatId: null, helloId: null, hostWatchId: null, staleCheckId: null,
+    lastPlayersSig: '',
+    dbgIn: 0, dbgOut: 0, dbgLast: '—',
+  }
+};
+
+function saveHostSession(c, n, useTimer) { try { localStorage.setItem('spy_host_session', JSON.stringify({ code: c, name: n, useTimer: !!useTimer, ts: Date.now() })); } catch(e) {} }
+function clearHostSession() { try { localStorage.removeItem('spy_host_session'); } catch(e) {} }
+function getHostSession() { try { const s = JSON.parse(localStorage.getItem('spy_host_session'));
+  if (s && s.code && s.name && (Date.now()-s.ts) < 6*3600*1000) return s; } catch(e) {} return null; }
+function saveGuestSession(c, n) { try { localStorage.setItem('spy_guest_session', JSON.stringify({ code: c, name: n, ts: Date.now() })); } catch(e) {} }
+function clearGuestSession() { try { localStorage.removeItem('spy_guest_session'); } catch(e) {} }
+function getGuestSession() { try { const s = JSON.parse(localStorage.getItem('spy_guest_session'));
+  if (s && s.code && s.name && (Date.now()-s.ts) < 6*3600*1000) return s; } catch(e) {} return null; }
+function getGuestId() { let id = localStorage.getItem('spy_guest_id'); if (!id) { id = 'g' + uid() + uid(); localStorage.setItem('spy_guest_id', id); } return id; }
+
+function chatKey(code, role, guestId) { return 'spy_chat_' + code + '_' + (role === 'host' ? 'h' : guestId); }
+function saveChatLocal() {
+  try {
+    if (!S.online.code || !S.online.role) return;
+    const k = chatKey(S.online.code, S.online.role, S.online.myGuestId);
+    localStorage.setItem(k, JSON.stringify(S.online.chat.slice(-200)));
+  } catch(e) {}
+}
+function makeChatId(senderId){return (senderId||'unknown')+':'+Date.now().toString(36)+':'+uid()+uid()}
+function normalizeChat(list){return (Array.isArray(list)?list:[]).map(m=>({id:m.id||makeChatId(m.senderId||m.name),senderId:m.senderId||(m.me?(S.online.role==='host'?'host':S.online.myGuestId):''),name:m.name||'Игрок',text:String(m.text||''),me:!!m.me}))}
+function chatAlreadySeen(id){if(!id)return false;S.online.chatSeen ||= new Set();if(S.online.chatSeen.has(id))return true;S.online.chatSeen.add(id);return false}
+function loadChatLocal(code, role, guestId) {
+  try {
+    const s = localStorage.getItem(chatKey(code, role, guestId));
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return [];
+}
+function clearChatLocal(code, role, guestId) {
+  try { localStorage.removeItem(chatKey(code, role, guestId)); } catch(e) {}
+}
+
+function loadThemes() { try { const s = localStorage.getItem('spy_themes_v2');
+  if (s) { const t = JSON.parse(s); if (Array.isArray(t) && t.length) return t; } } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_THEMES)); }
+function saveThemes() { localStorage.setItem('spy_themes_v2', JSON.stringify(S.themes)); }
+function activeTheme() { const id = localStorage.getItem('spy_active_theme'); return S.themes.find(t => t.id === id) || S.themes[0]; }
+function setActiveTheme(id) { localStorage.setItem('spy_active_theme', id); }
+
+function randomInt(max) { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] % max; }
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function genRoomCode() { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let o=''; const b=new Uint32Array(5); crypto.getRandomValues(b); for (let i=0;i<5;i++) o+=c[b[i]%c.length]; return o; }
+function playBeep() { try { const ctx = new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=880; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop();ctx.close();},600); } catch(e) {} }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function copyToClipboard(text) { try { const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,text.length); const ok=document.execCommand('copy'); document.body.removeChild(ta); return ok; } catch(e) { return false; } }
+
+// ============ МУЗЫКА: 32-тактовая шпионская тема (нуар/джаз, D-moll) ============
+const AMBIENT={
+  ctx:null, master:null, noiseShort:null, noiseLong:null, noiseRiser:null,
+  muted: localStorage.getItem('spy_sound_muted')==='1',
+  started:false, step:0, timer:null,
+  nextNoteTime:0, lookaheadMs:25, scheduleAhead:0.15
+};
+
+const BPM = 128;
+const STEP = 60 / BPM / 4;
+const STEPS_PER_BAR = 16;
+const SECTION_BARS = 8;
+const SECTIONS = 4;
+const TOTAL_BARS = SECTION_BARS * SECTIONS;
+const LOOP_STEPS = TOTAL_BARS * STEPS_PER_BAR;
+
+// Dm — Gm — A7 — Dm — Bb — Gm — A7 — Dm   (шпионский нуар)
+const CHORDS = [
+  { bass: 73.42,  pad: [146.83, 174.61, 220.00] },  // Dm
+  { bass: 98.00,  pad: [196.00, 233.08, 293.66] },  // Gm
+  { bass: 110.00, pad: [220.00, 277.18, 329.63] },  // A7  (C# — «детективный» теншн)
+  { bass: 73.42,  pad: [146.83, 174.61, 220.00] },  // Dm
+  { bass: 116.54, pad: [233.08, 293.66, 349.23] },  // Bb
+  { bass: 98.00,  pad: [196.00, 233.08, 293.66] },  // Gm
+  { bass: 110.00, pad: [220.00, 277.18, 329.63] },  // A7
+  { bass: 73.42,  pad: [146.83, 174.61, 220.00] },  // Dm
+];
+
+// Мотив: редкие фразы с паузами, «шаги в темноте»
+const LEADS = [
+  [440.00,0,0,0, 349.23,0,329.63,0, 293.66,0,0,0, 329.63,0,349.23,0],
+  [392.00,0,0,0, 466.16,0,440.00,0, 392.00,0,0,0, 349.23,0,329.63,0],
+  [329.63,0,0,0, 440.00,0,0,0, 523.25,0,0,0, 466.16,0,440.00,0],
+  [587.33,0,0,0, 523.25,0,440.00,0, 349.23,0,0,0, 329.63,0,293.66,0],
+  [349.23,0,0,0, 587.33,0,523.25,0, 466.16,0,0,0, 440.00,0,392.00,0],
+  [392.00,0,0,0, 466.16,0,0,0, 587.33,0,0,0, 523.25,0,466.16,0],
+  [440.00,0,0,0, 659.25,0,0,0, 523.25,0,0,0, 466.16,0,440.00,0],
+  [587.33,0,0,0, 0,0,0,0, 440.00,0,0,0, 349.23,0,293.66,0],
+];
+
+// Бочка — редкая, «шаги»
+const KICK_FULL  = [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0];
+const KICK_LIGHT = [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0];
+const KICK_BREAK = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0];
+
+// Снейр на 2 и 4 (джазовый бэкбит)
+const SNARE_OFF   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const SNARE_BASIC = [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0];
+const SNARE_PEAK  = [0,0,0,0,1,0,0,1,0,0,0,1,1,0,1,1];
+
+// Хэт — оффбит (свинг)
+const HH_OFF   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const HH_QUART = [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0];
+const HH_8TH   = [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0];
+const HH_16    = [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1];
+
+const OHH_PEAK = [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0];
+
+// Ходячий бас — четверти
+const BASS_FULL  = [1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0];
+const BASS_LIGHT = [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0];
+const BASS_BREAK = [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0];
+
+function makeNoise(ctx, dur) {
+  const b = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * dur)), ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+
+function playKick(ctx, out, at, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(120, at);
+  o.frequency.exponentialRampToValueAtTime(45, at + 0.12);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.9 * gain, at + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
+  o.connect(g); g.connect(out); o.start(at); o.stop(at + 0.25);
+  const c = ctx.createOscillator(), cg = ctx.createGain();
+  c.type = 'sine'; c.frequency.value = 1500;
+  cg.gain.setValueAtTime(0.15 * gain, at);
+  cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.012);
+  c.connect(cg); cg.connect(out); c.start(at); c.stop(at + 0.02);
+}
+
+function playSnare(ctx, out, at, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const n = ctx.createBufferSource();
+  n.buffer = AMBIENT.noiseLong;
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 0.9;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.55 * gain, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);
+  n.connect(f); f.connect(g); g.connect(out);
+  n.start(at); n.stop(at + 0.2);
+  const o = ctx.createOscillator(), og = ctx.createGain();
+  o.type = 'triangle'; o.frequency.value = 190;
+  og.gain.setValueAtTime(0.3 * gain, at);
+  og.gain.exponentialRampToValueAtTime(0.0001, at + 0.1);
+  o.connect(og); og.connect(out); o.start(at); o.stop(at + 0.12);
+}
+
+function playHH(ctx, out, at, open, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const dur = open ? 0.15 : 0.04;
+  const n = ctx.createBufferSource();
+  n.buffer = AMBIENT.noiseShort;
+  const f = ctx.createBiquadFilter();
+  f.type = 'highpass';
+  f.frequency.value = open ? 6500 : 8500;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime((open ? 0.16 : 0.14) * gain, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  n.connect(f); f.connect(g); g.connect(out);
+  n.start(at); n.stop(at + dur + 0.01);
+}
+
+function playShaker(ctx, out, at, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const n = ctx.createBufferSource();
+  n.buffer = AMBIENT.noiseShort;
+  const f = ctx.createBiquadFilter();
+  f.type = 'highpass'; f.frequency.value = 4500;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.05 * gain, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.025);
+  n.connect(f); f.connect(g); g.connect(out);
+  n.start(at); n.stop(at + 0.03);
+}
+
+function playBass(ctx, out, freq, at, dur, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.value = freq;
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(1000, at);
+  f.frequency.exponentialRampToValueAtTime(300, at + dur);
+  f.Q.value = 6;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.32 * gain, at + 0.01);
+  g.gain.setValueAtTime(0.32 * gain, at + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(f); f.connect(g); g.connect(out);
+  o.start(at); o.stop(at + dur + 0.02);
+}
+
+function playPad(ctx, out, notes, at, dur, brightness, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = brightness; filter.Q.value = 0.7;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(0.07 * gain, at + 0.2);
+  g.gain.setValueAtTime(0.07 * gain, at + dur - 0.4);
+  g.gain.linearRampToValueAtTime(0.0001, at + dur);
+  filter.connect(g); g.connect(out);
+  notes.forEach(freq => {
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth'; o.frequency.value = freq;
+    o.detune.value = (Math.random() - 0.5) * 14;
+    o.connect(filter); o.start(at); o.stop(at + dur + 0.05);
+  });
+}
+
+function playLead(ctx, out, freq, at, dur, g0) {
+  const gain = g0 === undefined ? 1 : g0;
+  const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.value = freq;
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(2600, at);
+  f.frequency.exponentialRampToValueAtTime(700, at + dur);
+  f.Q.value = 4;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.13 * gain, at + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(f); f.connect(g); g.connect(out);
+  o.start(at); o.stop(at + dur + 0.02);
+  const eo = ctx.createOscillator(), eg = ctx.createGain(), ef = ctx.createBiquadFilter();
+  eo.type = 'sawtooth'; eo.frequency.value = freq;
+  ef.type = 'lowpass'; ef.frequency.value = 1200;
+  eg.gain.setValueAtTime(0.0001, at + 0.16);
+  eg.gain.exponentialRampToValueAtTime(0.04 * gain, at + 0.17);
+  eg.gain.exponentialRampToValueAtTime(0.0001, at + 0.17 + dur * 0.6);
+  eo.connect(ef); ef.connect(eg); eg.connect(out);
+  eo.start(at + 0.16); eo.stop(at + 0.16 + dur + 0.02);
+}
+
+function playRiser(ctx, out, at, dur) {
+  const n = ctx.createBufferSource();
+  n.buffer = AMBIENT.noiseRiser; n.loop = true;
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass'; f.Q.value = 1.6;
+  f.frequency.setValueAtTime(300, at);
+  f.frequency.exponentialRampToValueAtTime(5000, at + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.16, at + dur * 0.85);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.02);
+  n.connect(f); f.connect(g); g.connect(out);
+  n.start(at); n.stop(at + dur + 0.05);
+}
+
+function playStep(step, time) {
+  const ctx = AMBIENT.ctx, out = AMBIENT.master;
+  const totalBar = Math.floor((step % LOOP_STEPS) / STEPS_PER_BAR);
+  const section = Math.floor(totalBar / SECTION_BARS);
+  const barInSection = totalBar % SECTION_BARS;
+  const chordBar = totalBar % 8;
+  const s = step % STEPS_PER_BAR;
+  const chord = CHORDS[chordBar];
+
+  let kickPat, snarePat, hhPat, ohhPat, bassPat;
+  let hhGain, bassGain, leadGain, padBright, padGain, kickGain, snareGain;
+
+  if (section === 0) {
+    // Разведка — тихо, только бас и редкий хэт
+    kickPat = KICK_LIGHT; snarePat = SNARE_OFF;   hhPat = HH_QUART; ohhPat = HH_OFF; bassPat = BASS_LIGHT;
+    hhGain = 0.55; bassGain = 0.85; leadGain = 0.5; padBright = 1100; padGain = 1.0; kickGain = 0.8; snareGain = 1;
+  } else if (section === 1) {
+    // Погоня — полный бит, свинг
+    kickPat = KICK_FULL;  snarePat = SNARE_BASIC; hhPat = HH_8TH;   ohhPat = HH_OFF;  bassPat = BASS_FULL;
+    hhGain = 0.9; bassGain = 1.05; leadGain = 1.0; padBright = 1500; padGain = 0.9; kickGain = 1.0; snareGain = 1;
+  } else if (section === 2) {
+    // Кульминация — плотные 16-е, шейкер, лид в октаву
+    kickPat = KICK_FULL;  snarePat = SNARE_PEAK;  hhPat = HH_16;    ohhPat = OHH_PEAK; bassPat = BASS_FULL;
+    hhGain = 1.0; bassGain = 1.1; leadGain = 1.2; padBright = 1900; padGain = 0.85; kickGain = 1.05; snareGain = 1.1;
+  } else {
+    // Развязка — бас-брейк, разреженная атмосфера
+    kickPat = KICK_BREAK; snarePat = SNARE_OFF;   hhPat = HH_QUART; ohhPat = HH_OFF;  bassPat = BASS_BREAK;
+    hhGain = 0.5; bassGain = 0.55; leadGain = 0.75; padBright = 2400; padGain = 1.2; kickGain = 0.7; snareGain = 1;
+  }
+
+  if (kickPat[s]) playKick(ctx, out, time, kickGain);
+  if (snarePat[s]) playSnare(ctx, out, time, snareGain);
+  if (hhPat[s]) playHH(ctx, out, time, false, hhGain);
+  if (ohhPat[s]) playHH(ctx, out, time, true, hhGain);
+  if (section === 2 && s % 2 === 1) playShaker(ctx, out, time, 1);
+  if (bassPat[s]) playBass(ctx, out, chord.bass, time, STEP * 1.7, bassGain);
+
+  const skipLead = (section === 3 && barInSection < 4);
+  const leadNote = LEADS[chordBar][s];
+  if (leadNote && !skipLead) {
+    let f = leadNote;
+    if (section === 2 && barInSection >= 4) f = leadNote * 2;
+    playLead(ctx, out, f, time, STEP * 1.4, leadGain);
+  }
+
+  if (s === 0) playPad(ctx, out, chord.pad, time, STEP * STEPS_PER_BAR * 1.02, padBright, padGain);
+
+  // Филл — снейр-ролл в конце каждой секции
+  if (barInSection === SECTION_BARS - 1 && s >= 12 && s <= 15) {
+    const intensity = (s - 11) / 4;
+    playSnare(ctx, out, time, intensity * 0.75);
+  }
+
+  // Riser — последние 2 бита последнего такта секции
+  if (barInSection === SECTION_BARS - 1 && s === 8) {
+    playRiser(ctx, out, time, STEP * 8);
+  }
+}
+
+function schedulerTick(){
+  const a = AMBIENT;
+  if(!a.ctx) return;
+  while(a.nextNoteTime < a.ctx.currentTime + a.scheduleAhead){
+    playStep(a.step, a.nextNoteTime);
+    a.nextNoteTime += STEP;
+    a.step++;
+  }
+}
+
+function startAmbient(){
+  if(AMBIENT.started || AMBIENT.muted) return;
+  try {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if(!C) return;
+    const ctx = AMBIENT.ctx || new C();
+    AMBIENT.ctx = ctx;
+    if(ctx.state === 'suspended') ctx.resume();
+
+    AMBIENT.noiseShort = makeNoise(ctx, 0.06);
+    AMBIENT.noiseLong = makeNoise(ctx, 0.2);
+    AMBIENT.noiseRiser = makeNoise(ctx, 1.0);
+
+    const master = ctx.createGain();
+    master.gain.value = 0.3;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18;
+    comp.knee.value = 12;
+    comp.ratio.value = 4;
+    comp.attack.value = 0.005;
+    comp.release.value = 0.15;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+
+    AMBIENT.master = master;
+    AMBIENT.started = true;
+    AMBIENT.step = 0;
+    AMBIENT.nextNoteTime = ctx.currentTime + 0.1;
+
+    schedulerTick();
+    AMBIENT.timer = setInterval(schedulerTick, AMBIENT.lookaheadMs);
+    updateSoundButton();
+  } catch(e) { console.error(e); }
+}
+
+function stopAmbient(){
+  if(AMBIENT.timer) clearInterval(AMBIENT.timer);
+  AMBIENT.timer = null;
+  if(AMBIENT.master){ try{ AMBIENT.master.disconnect(); }catch(e){} }
+  AMBIENT.master = null;
+  AMBIENT.started = false;
+}
+
+function toggleSound(){
+  AMBIENT.muted = !AMBIENT.muted;
+  if(AMBIENT.muted) stopAmbient();
+  else startAmbient();
+  localStorage.setItem('spy_sound_muted', AMBIENT.muted ? '1' : '0');
+  updateSoundButton();
+}
+
+function updateSoundButton(){
+  const b=document.getElementById('soundBtn');if(!b)return;
+  b.classList.toggle('muted',AMBIENT.muted);
+  b.innerHTML = AMBIENT.muted
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h3l4-4v14l-4-4H4z" fill="currentColor" stroke="none"/><path d="M16 9l6 6M22 9l-6 6"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h3l4-4v14l-4-4H4z" fill="currentColor" stroke="none"/><path d="M15 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+}
+
+function updateTimerDisplay() {
+  const el = document.querySelector('.timer'); if (!el) return;
+  const mm = String(Math.floor(S.timer.left/60)).padStart(2,'0');
+  const ss = String(S.timer.left%60).padStart(2,'0');
+  el.textContent = mm+':'+ss;
+  if (S.timer.left <= 60) el.classList.add('warn'); else el.classList.remove('warn');
+}
+function startTimer(seconds) { stopTimer(); S.timer.endsAt = Date.now()+seconds*1000; S.timer.left = seconds;
+  S.timer.id = setInterval(() => { const l=Math.max(0,Math.round((S.timer.endsAt-Date.now())/1000));
+    S.timer.left = l; if (l<=0) { stopTimer(); playBeep(); } updateTimerDisplay(); }, 500); }
+function startTimerAt(endsAt) { stopTimer(); S.timer.endsAt = endsAt;
+  S.timer.left = Math.max(0, Math.round((endsAt - Date.now())/1000));
+  S.timer.id = setInterval(() => { const l=Math.max(0,Math.round((S.timer.endsAt-Date.now())/1000));
+    S.timer.left = l; if (l<=0) { stopTimer(); playBeep(); } updateTimerDisplay(); }, 500); }
+function stopTimer() { if (S.timer.id) clearInterval(S.timer.id); S.timer.id = null; }
+
+function ppDealRoles(names, pool) {
+  const location = pool[randomInt(pool.length)];
+  const idx = names.map((_,i)=>i);
+  for (let i=idx.length-1;i>0;i--) { const j=randomInt(i+1); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+  S.pp.spyIndex = idx[0]; S.pp.location = location;
+  S.pp.roles = names.map((name,i) => ({ name, isSpy: i===S.pp.spyIndex, location: i===S.pp.spyIndex?null:location }));
+}
+
+function mqttDisconnect() {
+  stopHeartbeat(); stopHello(); stopHostWatch(); stopStaleCheck();
+  if (S.online.client) { try { S.online.client.onMessageArrived=null; S.online.client.onConnectionLost=null; S.online.client.disconnect(); } catch(e) {} S.online.client=null; }
+  S.online.connected = false;
+}
+function mqttSend(topic, obj, retained) {
+  if (!S.online.client || !S.online.connected) { console.log('skip send, no conn'); return false; }
+  try {
+    const m = new Paho.MQTT.Message(JSON.stringify(obj));
+    m.destinationName = topic; m.qos = 0; m.retained = !!retained;
+    S.online.client.send(m);
+    S.online.dbgOut++;
+    S.online.dbgLast = '→ ' + topic.split('/').slice(-1)[0] + ' ' + (obj.type || 'hb');
+    return true;
+  } catch(e) { console.error('send err', e); return false; }
+}
+function mqttClear(topic) {
+  if (!S.online.client || !S.online.connected) return;
+  try {
+    const m = new Paho.MQTT.Message('');
+    m.destinationName = topic; m.qos = 0; m.retained = true;
+    S.online.client.send(m);
+  } catch(e) {}
+}
+
+let hostReconnectTO = null;
+function hostStart(code, name, useTimer) {
+  mqttDisconnect(); clearTimeout(hostReconnectTO);
+  S.online.role = 'host'; S.online.code = code; S.online.myName = name;
+  S.online.hostName = name; S.online.connecting = true; S.online.connectError = '';
+  S.online.dbgIn = 0; S.online.dbgOut = 0; S.online.lastPlayersSig = '';
+  S.online.useTimer = !!useTimer;
+  const known = S.online.players.filter(p => p.id !== 'host');
+  S.online.players = [{ name, id: 'host' }];
+  known.forEach(k => S.online.players.push({ ...k, stale: true }));
+  S.online.chat = normalizeChat(loadChatLocal(code, 'host')); S.online.chatSeen = new Set(S.online.chat.map(m=>m.id));
+  S.screen = 'onlineHost'; render();
+
+  const clientId = 'sh-' + uid() + uid();
+  const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, MQTT_PATH, clientId);
+  S.online.client = client;
+
+  client.onConnectionLost = () => {
+    if (S.online.client !== client) return;
+    S.online.connected = false; stopHeartbeat(); stopStaleCheck();
+    render();
+    hostReconnectTO = setTimeout(() => hostStart(S.online.code, S.online.myName, S.online.useTimer), 2000);
+  };
+  client.onMessageArrived = (msg) => {
+    if (S.online.client !== client || S.online.role !== 'host') return;
+    S.online.dbgIn++;
+    const topic = msg.destinationName;
+    const code = S.online.code;
+    if (topic === tHost(code)) {
+      handleHostMsg(topic, msg.payloadString);
+    } else if (topic.indexOf(helloPrefix(code)) === 0) {
+      handleHostHello(topic, msg.payloadString);
+    }
+  };
+
+  client.connect({
+    useSSL: true, timeout: 15, keepAliveInterval: 30, cleanSession: true,
+    onSuccess: () => {
+      if (S.online.client !== client) return;
+      S.online.connected = true; S.online.connecting = false;
+      client.subscribe(tHost(code));
+      client.subscribe(tHelloWild(code));
+      startHeartbeat();
+      startStaleCheck();
+      render();
+    },
+    onFailure: (err) => {
+      if (S.online.client !== client) return;
+      S.online.connecting = false;
+      S.online.connectError = 'Ошибка брокера: ' + (err.errorMessage || err.errorCode || 'unknown');
+      render();
+      hostReconnectTO = setTimeout(() => hostStart(code, name, S.online.useTimer), 4000);
+    },
+  });
+}
+
+function startHeartbeat() { stopHeartbeat(); sendHeartbeat(); S.online.heartbeatId = setInterval(sendHeartbeat, 3000); }
+function sendHeartbeat() { if (S.online.connected && S.online.role === 'host') mqttSend(tHB(S.online.code), { t: Date.now(), n: S.online.myName }); }
+function stopHeartbeat() { if (S.online.heartbeatId) clearInterval(S.online.heartbeatId); S.online.heartbeatId = null; }
+
+function startStaleCheck() {
+  stopStaleCheck();
+  S.online.staleCheckId = setInterval(() => {
+    let changed = false;
+    S.online.players.forEach(p => {
+      if (p.id === 'host') return;
+      const stale = (Date.now() - (p.lastSeen || 0)) > 15000;
+      if (stale !== !!p.stale) { p.stale = stale; changed = true; }
+    });
+    if (changed) render();
+  }, 4000);
+}
+function stopStaleCheck() { if (S.online.staleCheckId) clearInterval(S.online.staleCheckId); S.online.staleCheckId = null; }
+
+function handleHostHello(topic, payload) {
+  let msg; try { msg = JSON.parse(payload); } catch(e) { return; }
+  if (!msg.guestId || !msg.name) return;
+  const gid = topic.slice(helloPrefix(S.online.code).length);
+  if (!gid) return;
+
+  let p = S.online.players.find(x => x.guestId === gid);
+  const wasStale = p ? p.stale : null;
+  const isNew = !p;
+  const requestState = !!msg.requestState;
+  let playerChanged = false;
+  if (isNew) {
+    p = { name: msg.name, id: uid(), guestId: gid, lastSeen: Date.now(), stale: false };
+    S.online.players.push(p); playerChanged = true;
+    S.online.dbgLast = '← hello ' + msg.name;
+  } else {
+    p.lastSeen = Date.now();
+    p.name = msg.name;
+    const changed = p.name !== msg.name || p.stale;
+    p.stale = false;
+    playerChanged = changed;
+  }
+
+  mqttSend(tGuest(S.online.code, gid), { type: 'welcome', hostName: S.online.myName });
+  if ((isNew || wasStale || requestState) && S.online.phase !== 'lobby' && S.online.playerRoles[p.name]) {
+    const role = S.online.playerRoles[p.name];
+    mqttSend(tGuest(S.online.code, gid), { type: 'role', isSpy: role.isSpy, location: role.location });
+    mqttSend(tGuest(S.online.code, gid), { type: 'phase-restore',
+      phase: S.online.phase, endsAt: S.online.endsAt,
+      players: activePlayers().map(x => x.name),
+      readyPlayers: S.online.readyPlayers, lastReadyAt: S.online.lastReadyAt,
+      useTimer: S.online.useTimer,
+      chat: S.online.chat,
+      myVote: S.online.votes[p.name] || null, result: S.online.result });
+  }
+
+  const sig = S.online.players.map(x => x.name + (x.stale ? '*' : '')).join('|');
+  if (isNew || wasStale || sig !== S.online.lastPlayersSig || playerChanged) {
+    S.online.lastPlayersSig = sig;
+    mqttSend(tAll(S.online.code), { type: 'players', players: S.online.players.map(x => x.name) });
+    mqttSend(tAll(S.online.code), { type: 'ready-state', ready: S.online.readyPlayers, total: activePlayers().length, lastReadyAt: S.online.lastReadyAt });
+    render();
+  }
+}
+
+function handleHostMsg(topic, payload) {
+  if (topic !== tHost(S.online.code)) return;
+  let msg; try { msg = JSON.parse(payload); } catch(e) { return; }
+  S.online.dbgLast = '← ' + (msg.type || '?') + ' от ' + (msg.name || '?');
+
+  if (msg.type === 'hello') {
+    if (msg.guestId) {
+      handleHostHello(helloPrefix(S.online.code) + msg.guestId,
+        JSON.stringify({ guestId: msg.guestId, name: msg.name, ts: Date.now() }));
+    }
+    return;
+  }
+  if (msg.type === 'leave') {
+    const removed = S.online.players.find(p => p.guestId === msg.guestId || p.name === msg.name);
+    if (removed) {
+      S.online.players = S.online.players.filter(p => p !== removed);
+      S.online.readyPlayers = S.online.readyPlayers.filter(n => n !== removed.name);
+      delete S.online.playerRoles[removed.name];
+    }
+    S.online.lastPlayersSig = '';
+    mqttSend(tAll(S.online.code), { type: 'players', players: S.online.players.map(p => p.name) });
+    mqttSend(tAll(S.online.code), { type: 'ready-state', ready: S.online.readyPlayers, total: activePlayers().length, lastReadyAt: S.online.lastReadyAt });
+    render();
+    return;
+  }
+  if (msg.type === 'chat') {
+    const id=msg.id || ((msg.senderId||msg.name||'x')+':'+(msg.ts||'')+':'+(msg.text||''));
+    if(msg.senderId==='host' || chatAlreadySeen(id)) return;
+    const m={id,senderId:msg.senderId||'',name:msg.name,text:msg.text,me:false};
+    S.online.chat.push(m); saveChatLocal();
+    mqttSend(tAll(S.online.code), {type:'chat',id,name:m.name,text:m.text,senderId:m.senderId,ts:msg.ts||Date.now()});
+    appendChatMessage(m); return;
+  }
+  if (msg.type === 'vote') { S.online.votes[msg.name] = msg.target; checkVotesComplete(); render(); return; }
+  if (msg.type === 'ready') {
+    if (!S.online.readyPlayers.includes(msg.name)) { S.online.readyPlayers.push(msg.name); S.online.lastReadyAt = Date.now(); }
+    mqttSend(tAll(S.online.code), { type: 'ready-state', ready: S.online.readyPlayers, total: activePlayers().length, lastReadyAt: S.online.lastReadyAt });
+    render();
+    return;
+  }
+}
+
+function activePlayers() { return S.online.players.filter(p => p.id === 'host' || !p.stale); }
+
+function hostStartGame() {
+  const pool = activeTheme().items;
+  if (pool.length < 2) { alert('В активной теме мало вариантов'); return; }
+  const active = activePlayers();
+  if (active.length < 1) { alert('Нужен хотя бы 1 игрок'); return; }
+  const location = pool[randomInt(pool.length)];
+  const idx = active.map((_,i)=>i);
+  for (let i=idx.length-1;i>0;i--) { const j=randomInt(i+1); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+  const spyIndex = idx[0];
+  S.online.readyPlayers = []; S.online.lastReadyAt = 0; S.online.playerRoles = {};
+  S.online.chat = []; saveChatLocal();
+  active.forEach((p, i) => {
+    const isSpy = i === spyIndex;
+    const role = { isSpy, location: isSpy ? null : location };
+    S.online.playerRoles[p.name] = role;
+    if (p.id === 'host') S.online.myRole = role;
+    else if (p.guestId) mqttSend(tGuest(S.online.code, p.guestId), { type: 'role', isSpy, location: role.location });
+  });
+  S.online.spyIndex = spyIndex; S.online.location = location;
+  S.online.votes = {}; S.online.result = null;
+  S.online.phase = 'reveal'; S.online.revealed = false;
+  S.online.myVote = null; S.online.myReadySent = false;
+  mqttSend(tAll(S.online.code), { type: 'start' });
+  render();
+}
+function hostStartDiscussion() {
+  if (!allReady()) { alert('Не все посмотрели роль'); return; }
+  if (!readyDelayPassed()) { const l = Math.ceil((3000-(Date.now()-S.online.lastReadyAt))/1000); alert('Подожди '+l+' сек.'); return; }
+  S.online.phase = 'play';
+  if (S.online.useTimer) {
+    const endsAt = Date.now() + 5*60*1000;
+    S.online.endsAt = endsAt;
+    startTimerAt(endsAt);
+    mqttSend(tAll(S.online.code), { type: 'discussion', endsAt, useTimer: true });
+  } else {
+    stopTimer();
+    S.online.endsAt = 0;
+    mqttSend(tAll(S.online.code), { type: 'discussion', endsAt: 0, useTimer: false });
+  }
+  render();
+}
+function hostStartVote() { stopTimer(); S.online.phase='vote'; S.online.votes={}; S.online.myVote=null;
+  mqttSend(tAll(S.online.code), { type: 'vote-start' }); render(); }
+function checkVotesComplete() {
+  const total = activePlayers().length;
+  const voted = Object.keys(S.online.votes).length + (S.online.myVote ? 1 : 0);
+  if (voted < total) return;
+  const tally = {};
+  Object.values(S.online.votes).forEach(t => { tally[t]=(tally[t]||0)+1; });
+  if (S.online.myVote) tally[S.online.myVote] = (tally[S.online.myVote]||0)+1;
+  let winner = null, max = 0;
+  for (const [n,c] of Object.entries(tally)) if (c>max) { max=c; winner=n; }
+  const spyName = S.online.playerRoles ? Object.keys(S.online.playerRoles).find(n => S.online.playerRoles[n].isSpy) : null;
+  const caught = winner === spyName;
+  const result = { spyName, location: S.online.location, voted: winner, caught, tally };
+  S.online.result = result; S.online.phase = 'result';
+  mqttSend(tAll(S.online.code), { type: 'result', result });
+  render();
+}
+function hostRestart() {
+  S.online.phase='lobby'; S.online.myRole=null; S.online.result=null; S.online.myVote=null;
+  S.online.votes={}; S.online.chat=[]; saveChatLocal(); S.online.revealed=false;
+  S.online.readyPlayers=[]; S.online.myReadySent=false; S.online.playerRoles={};
+  stopTimer();
+  mqttSend(tAll(S.online.code), { type: 'reset' });
+  S.online.lastPlayersSig = '';
+  mqttSend(tAll(S.online.code), { type: 'players', players: S.online.players.map(p => p.name) });
+  render();
+}
+function hostSendChat(text) {
+  if (!text.trim()) return;
+  const m={id:makeChatId('host'),senderId:'host',name:S.online.myName,text:text.trim(),me:true};
+  S.online.chat.push(m); chatAlreadySeen(m.id); saveChatLocal();
+  mqttSend(tAll(S.online.code),{type:'chat',id:m.id,name:m.name,text:m.text,senderId:'host',ts:Date.now()}); appendChatMessage(m);
+}
+function hostSendVote(t) { S.online.myVote = t; checkVotesComplete(); render(); }
+function hostSendReady() {
+  if (S.online.myReadySent) return;
+  S.online.myReadySent = true;
+  if (!S.online.readyPlayers.includes(S.online.myName)) { S.online.readyPlayers.push(S.online.myName); S.online.lastReadyAt = Date.now(); }
+  mqttSend(tAll(S.online.code), { type: 'ready-state', ready: S.online.readyPlayers, total: activePlayers().length, lastReadyAt: S.online.lastReadyAt });
+  render();
+}
+
+let guestReconnectTO = null;
+function guestStart(code, name, guestId) {
+  mqttDisconnect(); clearTimeout(guestReconnectTO);
+  S.online.role = 'guest';
+  S.online.requestState=true; S.online.code = code; S.online.myName = name; S.online.myGuestId = guestId;
+  S.online.connecting = true; S.online.connectError = '';
+  S.online.dbgIn = 0; S.online.dbgOut = 0;
+  S.online.lastHostPing = 0; S.online.hostOnline = false;
+  if (!S.online.players.length) S.online.players = [{ name }];
+  S.online.chat = normalizeChat(loadChatLocal(code, 'guest', guestId)); S.online.chatSeen = new Set(S.online.chat.map(m=>m.id));
+  S.screen = 'onlineJoin'; render();
+
+  const clientId = 'sg-' + uid() + uid();
+  const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, MQTT_PATH, clientId);
+  S.online.client = client;
+
+  client.onConnectionLost = () => {
+    if (S.online.client !== client) return;
+    S.online.connected = false; stopHello(); stopHostWatch(); render();
+    guestReconnectTO = setTimeout(() => guestStart(S.online.code, S.online.myName, S.online.myGuestId), 2000);
+  };
+  client.onMessageArrived = (msg) => {
+    if (S.online.client !== client || S.online.role !== 'guest') return;
+    S.online.dbgIn++;
+    handleGuestMsg(msg.destinationName, msg.payloadString);
+  };
+
+  client.connect({
+    useSSL: true, timeout: 15, keepAliveInterval: 30, cleanSession: true,
+    onSuccess: () => {
+      if (S.online.client !== client) return;
+      S.online.connected = true; S.online.connecting = false;
+      client.subscribe(tAll(code));
+      client.subscribe(tGuest(code, guestId));
+      client.subscribe(tHB(code));
+      sendHello();
+      startHello();
+      startHostWatch();
+      S.screen = 'onlineGuest';
+      render();
+    },
+    onFailure: (err) => {
+      if (S.online.client !== client) return;
+      S.online.connecting = false;
+      S.online.connectError = 'Ошибка брокера: ' + (err.errorMessage || err.errorCode || 'unknown');
+      render();
+      guestReconnectTO = setTimeout(() => guestStart(code, name, guestId), 4000);
+    },
+  });
+}
+
+function sendHello() {
+  if (S.online.connected && S.online.role === 'guest') {
+    mqttSend(tHello(S.online.code, S.online.myGuestId), {
+      name:S.online.myName,guestId:S.online.myGuestId,ts:Date.now(),requestState:!!S.online.requestState
+    }, true);
+    S.online.requestState=false;
+  }
+}
+function startHello() { stopHello(); sendHello(); S.online.helloId = setInterval(sendHello, 5000); }
+function stopHello() { if (S.online.helloId) clearInterval(S.online.helloId); S.online.helloId = null; }
+
+function startHostWatch() {
+  stopHostWatch();
+  S.online.hostWatchId = setInterval(() => {
+    const online = (Date.now() - S.online.lastHostPing) < 8000;
+    if (online !== S.online.hostOnline) {
+      S.online.hostOnline = online;
+      if (online) sendHello();
+      render();
+    }
+  }, 1000);
+}
+function stopHostWatch() { if (S.online.hostWatchId) clearInterval(S.online.hostWatchId); S.online.hostWatchId = null; }
+
+function handleGuestMsg(topic, payload) {
+  const code = S.online.code;
+  let msg; try { msg = JSON.parse(payload); } catch(e) { return; }
+  if (topic === tHB(code)) {
+    S.online.lastHostPing = Date.now();
+    if (!S.online.hostOnline) { S.online.hostOnline = true; render(); }
+    return;
+  }
+  S.online.dbgLast = '← ' + (msg.type || '?') + (msg.name ? ' от ' + msg.name : '');
+  if (topic === tAll(code)) {
+    if (msg.type === 'players') { S.online.players = msg.players.map(n => ({ name: n })); render(); }
+    if (msg.type === 'ready-state') { S.online.readyPlayers = msg.ready||[]; S.online.lastReadyAt = msg.lastReadyAt||0; render(); }
+    if (msg.type === 'start') { S.online.phase='reveal'; S.online.revealed=false; S.online.myReadySent=false; S.online.readyPlayers=[]; render(); }
+    if (msg.type === 'discussion') {
+      S.online.phase='play'; S.online.useTimer = !!msg.useTimer;
+      if (msg.useTimer && msg.endsAt) startTimerAt(msg.endsAt);
+      else { stopTimer(); S.online.endsAt = 0; }
+      render();
+    }
+    if (msg.type === 'vote-start') { S.online.phase='vote'; S.online.myVote=null; stopTimer(); render(); }
+    if (msg.type === 'result') { S.online.result = msg.result; S.online.phase = 'result'; render(); }
+    if (msg.type === 'chat') {
+      const id=msg.id || ((msg.senderId||msg.name||'x')+':'+(msg.ts||'')+':'+(msg.text||''));
+      if(msg.senderId===S.online.myGuestId || chatAlreadySeen(id)) return;
+      const m={id,senderId:msg.senderId||'',name:msg.name,text:msg.text,me:false};
+      S.online.chat.push(m); saveChatLocal(); appendChatMessage(m);
+    }
+    if (msg.type === 'reset') {
+      S.online.phase='lobby'; S.online.myRole=null; S.online.result=null; S.online.myVote=null;
+      S.online.chat=[]; saveChatLocal(); S.online.readyPlayers=[]; S.online.myReadySent=false;
+      stopTimer(); render();
+    }
+    return;
+  }
+  if (topic === tGuest(code, S.online.myGuestId)) {
+    if (msg.type === 'welcome') { S.online.hostName = msg.hostName; render(); }
+    if (msg.type === 'role') { S.online.myRole = { isSpy: msg.isSpy, location: msg.location }; S.online.phase='reveal'; render(); }
+    if (msg.type === 'phase-restore') {
+      S.online.phase = msg.phase; S.online.endsAt = msg.endsAt||0;
+      S.online.useTimer = !!msg.useTimer;
+      S.online.players = (msg.players||[]).map(n => ({ name: n }));
+      S.online.readyPlayers = msg.readyPlayers||[]; S.online.lastReadyAt = msg.lastReadyAt||0;
+      S.online.myVote = msg.myVote||null; S.online.result = msg.result||null;
+      if (msg.chat && msg.chat.length) {
+        const myId = S.online.myGuestId;
+        S.online.chat = normalizeChat(msg.chat).map(m => ({
+          ...m,
+          me: !!myId && m.senderId === myId
+        }));
+        S.online.chatSeen = new Set(S.online.chat.map(m => m.id));
+        saveChatLocal();
+      }
+      if (msg.phase === 'play' && msg.useTimer && msg.endsAt) startTimerAt(msg.endsAt);
+      else stopTimer();
+      render();
+    }
+    return;
+  }
+}
+
+function guestSendChat(text) {
+  if (!text.trim()) return;
+  const m={id:makeChatId(S.online.myGuestId),senderId:S.online.myGuestId,name:S.online.myName,text:text.trim(),me:true};
+  S.online.chat.push(m); chatAlreadySeen(m.id); saveChatLocal();
+  mqttSend(tHost(S.online.code),{type:'chat',id:m.id,name:m.name,text:m.text,senderId:S.online.myGuestId,ts:Date.now()}); appendChatMessage(m);
+}
+function guestSendVote(t) { S.online.myVote = t; mqttSend(tHost(S.online.code), { type: 'vote', name: S.online.myName, target: t }); render(); }
+function guestSendReady() {
+  if (S.online.myReadySent) return;
+  S.online.myReadySent = true;
+  mqttSend(tHost(S.online.code), { type: 'ready', name: S.online.myName });
+  render();
+}
+
+function guestLeaveRoom() {
+  if (S.online.connected && S.online.code && S.online.myGuestId) {
+    mqttSend(tHost(S.online.code), { type: 'leave', name: S.online.myName, guestId: S.online.myGuestId });
+    mqttClear(tHello(S.online.code, S.online.myGuestId));
+    clearChatLocal(S.online.code, 'guest', S.online.myGuestId);
+  }
+  clearGuestSession(); mqttDisconnect(); stopTimer();
+  S.online.role = null; S.online.code = ''; S.online.hostOnline = false;
+  S.online.phase='lobby'; S.online.myRole=null; S.online.chat = [];
+  S.screen = 'menu'; render();
+}
+function hostLeaveRoom() {
+  if (S.online.code) clearChatLocal(S.online.code, 'host');
+  clearHostSession(); mqttDisconnect(); stopTimer();
+  S.online.role = null; S.online.code = ''; S.online.hostOnline = false;
+  S.online.phase='lobby'; S.online.myRole=null; S.online.players=[]; S.online.chat=[]; S.online.playerRoles={};
+  S.screen = 'menu'; render();
+}
+
+function allReady() {
+  const activeNames = new Set(activePlayers().map(p => p.name));
+  const ready = S.online.readyPlayers.filter(n => activeNames.has(n));
+  return ready.length >= activePlayers().length;
+}
+function readyDelayPassed() {
+  if (!allReady() || S.online.lastReadyAt === 0) return false;
+  return (Date.now() - S.online.lastReadyAt) >= 3000;
+}
+function appendChatMessage(msg) {
+  const box = document.getElementById('chatBox'); if (!box) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (msg.me ? ' me' : '');
+  div.innerHTML = (!msg.me ? '<span class="who">'+esc(msg.name)+'</span>' : '') + esc(msg.text);
+  const nearBottom=(box.scrollHeight-box.scrollTop-box.clientHeight)<80; box.appendChild(div); if(nearBottom||msg.me) box.scrollTop=box.scrollHeight;
+}
+function renderChat() {
+  return S.online.chat.map(m => '<div class="chat-msg '+(m.me?'me':'')+'">' + (!m.me?'<span class="who">'+esc(m.name)+'</span>':'') + esc(m.text) + '</div>').join('');
+}
+function doSendChat() {
+  const inp = document.getElementById('chatInput'); if (!inp) return;
+  const text = inp.value; inp.value = '';
+  if (S.online.role === 'host') hostSendChat(text);
+  else if (S.online.role === 'guest') guestSendChat(text);
+  inp.focus();
+}
+
+function hostCreateNewRoom(name, useTimer) { const c = genRoomCode(); saveHostSession(c, name, useTimer); hostStart(c, name, useTimer); }
+function hostRestoreRoom() { const s = getHostSession(); if (!s) return; hostStart(s.code, s.name, s.useTimer); }
+function copyCode() { const c = S.online.code; if (!c) return; const ok = copyToClipboard(c); alert(ok ? 'Код скопирован: '+c : 'Код: '+c); }
+function shareRoom() {
+  const c = S.online.code; if (!c) return;
+  const text = '🕵️ Играю в Шпиона! Код: '+c+'\nЗаходи в бота и жми «Присоединиться».';
+  if (navigator.share) { navigator.share({ title: 'Шпион', text }).catch(()=>{}); return; }
+  if (tg && tg.openTelegramLink) { tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent('https://t.me')+'&text='+encodeURIComponent(text)); return; }
+  const ok = copyToClipboard(text); alert(ok ? 'Скопировано:\n\n'+text : 'Код:\n\n'+c);
+}
+
+function goHome() {
+  S.screen = 'menu';
+  render();
+}
+
+const ASCII_CHARS='░▒▓█·:*+xX#@';
+const asciiParts=[];
+let asciiRunning=false;
+function initAscii(){
+  const root=document.getElementById('asciiBg');
+  if(!root||asciiRunning)return;
+  asciiRunning=true;
+  const count=Math.min(140,Math.max(70,Math.floor(innerWidth*innerHeight/8000)));
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');
+    p.className='ascii-p';
+    p.style.left=(Math.random()*100)+'%';
+    p.style.top=(Math.random()*100)+'%';
+    p.style.fontSize=(14+Math.random()*16)+'px';
+    p.style.color='hsl('+Math.floor(Math.random()*360)+' 100% 65%)';
+    p.style.opacity=(.35+Math.random()*.5).toFixed(2);
+    p.dataset.x=p.offsetLeft;
+    p.dataset.y=p.offsetTop;
+    p.dataset.vx=(-.25+Math.random()*.50).toFixed(3);
+    p.dataset.vy=(-.15+Math.random()*.30).toFixed(3);
+    p.dataset.phase=(Math.random()*Math.PI*2).toFixed(2);
+    const span=document.createElement('span');
+    span.textContent=ASCII_CHARS[Math.floor(Math.random()*ASCII_CHARS.length)];
+    span.style.animationDelay=(Math.random()*2).toFixed(2)+'s';
+    p.appendChild(span);
+    root.appendChild(p);
+    asciiParts.push(p);
+  }
+}
+function animateAscii(t){
+  if(!asciiRunning)return;
+  const w=innerWidth,h=innerHeight;
+  for(const p of asciiParts){
+    let x=parseFloat(p.dataset.x)+parseFloat(p.dataset.vx),y=parseFloat(p.dataset.y)+parseFloat(p.dataset.vy);
+    if(x<-20)x=w+20; if(x>w+20)x=-20;
+    if(y<-20)y=h+20; if(y>h+20)y=-20;
+    p.dataset.x=x; p.dataset.y=y;
+    p.style.transform='translate('+x+'px,'+y+'px) rotate('+((t/80+parseFloat(p.dataset.phase)*20)%360)+'deg)';
+    p.style.opacity=(.35+.50*(.5+.5*Math.sin(t/900+parseFloat(p.dataset.phase)))).toFixed(2);
+  }
+  requestAnimationFrame(animateAscii);
+}
+window.addEventListener('resize',()=>{if(asciiParts.length<60)initAscii()});
+setTimeout(()=>{initAscii();requestAnimationFrame(animateAscii)},50);
+
+function render() {
+  const inChatPlay = S.online && S.online.phase === 'play';
+  const chatBox = document.getElementById('chatBox');
+
+  // В фазе обсуждения не трогаем DOM целиком — обновляем только сообщения.
+  // Так input не удаляется и мобильная клавиатура не закрывается.
+  if (inChatPlay && chatBox) {
+    const newHtml = renderChat();
+    if (chatBox.innerHTML !== newHtml) {
+      const nearBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < 80;
+      chatBox.innerHTML = newHtml;
+      if (nearBottom) chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    updateSoundButton();
+    return;
+  }
+
+  const app=document.getElementById('app'); app.innerHTML='';
+  (screens[S.screen] || menu)(app);
+  const hb=document.getElementById('homeBtn');
+  if(hb) hb.style.display=(S.screen==='menu')?'none':'flex';
+  updateSoundButton();
+}
+const screens = {};
+
+function menu(app) {
+  const t = activeTheme();
+  const h = getHostSession(), g = getGuestSession();
+  let r = '';
+  if (h) r += `<div class="card" style="border:1px solid #4a7cff"><p class="muted">Ты хост комнаты</p><div style="font-size:24px;font-weight:800;color:#4a7cff;margin:6px 0">${esc(h.code)}</div><button class="btn primary small" onclick="hostRestoreRoom()">Вернуться</button><button class="btn ghost small" onclick="clearHostSession();render()">Удалить</button></div>`;
+  if (g) r += `<div class="card" style="border:1px solid #4caf50"><p class="muted">Ты в комнате</p><div style="font-size:24px;font-weight:800;color:#4caf50;margin:6px 0">${esc(g.code)}</div><button class="btn primary small" onclick="restoreGuestFromMenu()">Вернуться</button><button class="btn ghost small" onclick="clearGuestSession();render()">Забыть</button></div>`;
+  app.innerHTML = `<div class="spacer"></div><h1>🕵️ Шпион</h1><p class="muted center">Тема: <b>${esc(t.name)}</b> (${t.items.length})</p><div style="height:12px"></div>${r}<button class="btn primary" onclick="S.screen='setup';render()">🎮 Игра на одном телефоне</button><button class="btn primary" onclick="S.screen='onlineMenu';render()">🌐 Онлайн</button><button class="btn" onclick="S.screen='themesList';render()">📚 Темы и пулы</button><button class="btn ghost" onclick="showRules()">Правила</button><div class="spacer"></div>`;
+}
+screens.menu = menu;
+function restoreGuestFromMenu() { const s = getGuestSession(); if (!s) return; guestStart(s.code, s.name, getGuestId()); }
+
+function themesList(app) {
+  app.innerHTML = `<h1>Темы</h1><p class="muted">Выбери активную.</p><div id="themesBox"></div><button class="btn primary" onclick="createTheme()">+ Новая тема</button><button class="btn ghost" onclick="S.screen='menu';render()">Назад</button>`;
+  const box = document.getElementById('themesBox');
+  const active = activeTheme();
+  S.themes.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'theme-item' + (t.id === active.id ? ' active' : '');
+    el.innerHTML = `<div><div class="name">${esc(t.name)} ${t.id === active.id ? '✓' : ''}</div><div class="count">${t.items.length} вариантов</div></div><div style="font-size:24px">›</div>`;
+    el.onclick = () => { S.editingThemeId = t.id; S.screen = 'themeEdit'; render(); };
+    box.appendChild(el);
+  });
+}
+screens.themesList = themesList;
+
+function themeEdit(app) {
+  const t = S.themes.find(x => x.id === S.editingThemeId);
+  if (!t) { S.screen = 'themesList'; render(); return; }
+  const isActive = activeTheme().id === t.id;
+  app.innerHTML = `<h1>${esc(t.name)}</h1><label class="muted">Название</label><input id="themeName" value="${esc(t.name)}" style="margin:6px 0 12px"><label class="muted">Варианты (по одному на строку)</label><textarea id="themeItems" style="margin:6px 0 12px">${esc(t.items.join('\n'))}</textarea><button class="btn primary" onclick="saveTheme()">Сохранить</button>${!isActive ? `<button class="btn" onclick="setActiveTheme('${t.id}');render()">Сделать активной</button>` : ''}<button class="btn danger" onclick="deleteTheme()">Удалить</button><button class="btn ghost" onclick="S.screen='themesList';render()">Назад</button>`;
+}
+screens.themeEdit = themeEdit;
+function saveTheme() {
+  const t = S.themes.find(x => x.id === S.editingThemeId); if (!t) return;
+  const name = document.getElementById('themeName').value.trim(); if (!name) { alert('Введи название'); return; }
+  const items = document.getElementById('themeItems').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (items.length < 2) { alert('Нужно минимум 2 варианта'); return; }
+  t.name = name; t.items = items; saveThemes(); S.screen = 'themesList'; render();
+}
+function createTheme() {
+  const name = prompt('Название:', 'Моя тема'); if (!name) return;
+  const t = { id: uid(), name: name.trim(), items: ['Первый','Второй'] };
+  S.themes.push(t); saveThemes(); S.editingThemeId = t.id; S.screen = 'themeEdit'; render();
+}
+function deleteTheme() {
+  if (S.themes.length <= 1) { alert('Хотя бы одна'); return; }
+  if (!confirm('Удалить?')) return;
+  S.themes = S.themes.filter(x => x.id !== S.editingThemeId);
+  saveThemes(); S.screen = 'themesList'; render();
+}
+
+function setup(app) {
+  const t = activeTheme();
+  const names = S.pp.players.length ? S.pp.players : ['', '', ''];
+  app.innerHTML = `<h1>Игроки</h1><p class="muted center">Тема: <b>${esc(t.name)}</b></p><p class="muted">Любое количество. Пустые строки не считаются.</p><div id="names"></div>
+    <label class="checkbox-row"><input type="checkbox" id="ppUseTimer" ${S.pp.useTimer?'checked':''}><span>Использовать таймер (5 мин)</span></label>
+    <button class="btn ghost" onclick="addPlayer()">+ Добавить</button><button class="btn primary" onclick="confirmPlayers()">Начать</button><button class="btn ghost" onclick="S.screen='menu';render()">Назад</button>`;
+  const box = document.getElementById('names');
+  names.forEach((n, i) => { const row = document.createElement('div'); row.className='row'; row.innerHTML = `<input value="${esc(n)}" placeholder="Игрок ${i+1}" oninput="S.pp.players[${i}]=this.value">`; box.appendChild(row); });
+  S.pp.players = names;
+}
+screens.setup = setup;
+function addPlayer() {
+  S.pp.useTimer = document.getElementById('ppUseTimer')?.checked || false;
+  const n = Array.from(document.querySelectorAll('#names input')).map(i=>i.value); n.push(''); S.pp.players = n;
+  setup(document.getElementById('app'));
+}
+function confirmPlayers() {
+  const n = Array.from(document.querySelectorAll('#names input')).map(i=>i.value.trim()).filter(Boolean);
+  if (n.length < 1) { alert('Минимум 1'); return; }
+  const pool = activeTheme().items; if (pool.length < 2) { alert('Мало вариантов'); return; }
+  S.pp.useTimer = document.getElementById('ppUseTimer')?.checked || false;
+  S.pp.players = n; ppDealRoles(n, pool);
+  S.pp.currentIndex = 0; S.pp.revealed = false; S.pp.votes = {};
+  S.screen = 'deal'; render();
+}
+
+function deal(app) {
+  const role = S.pp.roles[S.pp.currentIndex];
+  if (!S.pp.revealed) {
+    app.innerHTML = `<div class="spacer"></div><h1>${esc(role.name)}</h1><p class="muted center">Нажми и передай дальше.</p><div class="spacer"></div><button class="btn primary" onclick="S.pp.revealed=true;render()">Показать роль</button><div class="spacer"></div><p class="muted center">${S.pp.currentIndex+1}/${S.pp.roles.length}</p>`;
+  } else {
+    const isSpy = role.isSpy;
+    app.innerHTML = `<div class="spacer"></div><div class="role-card ${isSpy?'spy':''}"><div class="role-label">${isSpy?'ТЫ ШПИОН':'ТВОЙ ВАРИАНТ'}</div><div class="role-value">${isSpy?'🕵️':esc(role.location)}</div></div><div class="spacer"></div><button class="btn primary" onclick="nextPlayer()">Скрыть и передать</button>`;
+  }
+}
+screens.deal = deal;
+function nextPlayer() {
+  S.pp.revealed = false; S.pp.currentIndex++;
+  if (S.pp.currentIndex >= S.pp.roles.length) {
+    S.screen='game';
+    if (S.pp.useTimer) startTimer(5*60); else stopTimer();
+  }
+  render();
+}
+function game(app) {
+  let timerHtml = '';
+  if (S.pp.useTimer) {
+    const mm = String(Math.floor(S.timer.left/60)).padStart(2,'0');
+    const ss = String(S.timer.left%60).padStart(2,'0');
+    const w = S.timer.left <= 60;
+    timerHtml = `<div class="timer ${w?'warn':''}">${mm}:${ss}</div>`;
+  }
+  app.innerHTML = `<h1>Обсуждение</h1>${timerHtml}<p class="muted center">Задавайте вопросы по кругу.</p><div class="spacer"></div><button class="btn primary" onclick="stopTimer();S.screen='vote';render()">К голосованию</button>${S.pp.useTimer ? '<button class="btn ghost" onclick="startTimer(5*60)">Сбросить</button>' : ''}`;
+}
+screens.game = game;
+function vote(app) {
+  app.innerHTML = `<h1>Кто шпион?</h1><div class="player-list" id="voteList"></div><div class="spacer"></div><button class="btn primary" onclick="finishVote()">Результат</button>`;
+  const list = document.getElementById('voteList');
+  S.pp.roles.forEach((r, i) => {
+    const el = document.createElement('div');
+    el.className = 'player-item' + (S.pp.votes.selected === i ? ' selected' : '');
+    el.textContent = r.name;
+    el.onclick = () => { S.pp.votes.selected = i; render(); };
+    list.appendChild(el);
+  });
+}
+screens.vote = vote;
+function finishVote() {
+  const s = S.pp.votes.selected;
+  S.pp.lastResult = { spyName: S.pp.roles[S.pp.spyIndex].name, location: S.pp.location, selectedName: s != null ? S.pp.roles[s].name : null, caught: s === S.pp.spyIndex };
+  stopTimer(); S.screen = 'result'; render();
+}
+function result(app) {
+  const r = S.pp.lastResult;
+  app.innerHTML = `<h1>${r.caught?'✅ Шпион пойман!':'❌ Шпион ушёл'}</h1><div class="card"><p class="muted">Шпион</p><div class="big">${esc(r.spyName)}</div><p class="muted">Вариант</p><div class="big">${esc(r.location)}</div></div><div class="spacer"></div><button class="btn primary" onclick="playAgain()">Играть ещё</button><button class="btn ghost" onclick="S.screen='menu';render()">В меню</button>`;
+}
+screens.result = result;
+function playAgain() {
+  const pool = activeTheme().items;
+  if (pool.length >= 2 && S.pp.players.length >= 1) {
+    ppDealRoles(S.pp.players, pool); S.pp.currentIndex = 0; S.pp.revealed = false; S.pp.votes = {};
+    S.screen = 'deal'; stopTimer(); render();
+  } else { S.screen = 'menu'; render(); }
+}
+
+function onlineMenu(app) {
+  app.innerHTML = `<h1>Онлайн</h1><p class="muted center">Тема: <b>${esc(activeTheme().name)}</b></p><div style="height:12px"></div><button class="btn primary" onclick="S.screen='onlineHostForm';render()">Создать комнату</button><button class="btn primary" onclick="S.screen='onlineJoin';render()">Присоединиться</button><div class="spacer"></div><button class="btn ghost" onclick="S.screen='menu';render()">Назад</button>`;
+}
+screens.onlineMenu = onlineMenu;
+
+function onlineHostForm(app) {
+  const def = tg?.initDataUnsafe?.user?.first_name || '';
+  const saved = getHostSession();
+  let e = '';
+  if (saved) e = `<div class="card" style="border:1px solid #4a7cff;margin-bottom:10px"><p class="muted">У тебя есть комната <b>${esc(saved.code)}</b></p><button class="btn primary small" onclick="hostRestoreRoom()">Вернуться</button><button class="btn ghost small" onclick="clearHostSession();render()">Новую</button></div>`;
+  app.innerHTML = `<h1>Создать комнату</h1>${e}<label class="muted">Твоё имя</label><input id="hostName" value="${esc(S.online.myName || def || '')}" placeholder="Хост" style="margin:6px 0 12px">
+    <label class="checkbox-row"><input type="checkbox" id="useTimer" ${S.online.useTimer?'checked':''}><span>Использовать таймер (5 мин)</span></label>
+    <button class="btn primary" onclick="doHostCreate()">Создать</button><button class="btn ghost" onclick="S.screen='onlineMenu';render()">Назад</button>`;
+}
+screens.onlineHostForm = onlineHostForm;
+function doHostCreate() {
+  const n = document.getElementById('hostName').value.trim(); if (!n) { alert('Введи имя'); return; }
+  const useTimer = document.getElementById('useTimer')?.checked || false;
+  S.online.myName = n;
+  hostCreateNewRoom(n, useTimer);
+}
+
+function onlineJoin(app) {
+  const o = S.online;
+  if (o.role === 'guest' && o.connecting) {
+    app.innerHTML = `<div class="spacer"></div><h1>Подключаемся…</h1><div class="spinner"></div><p class="muted center">Комната: <b>${esc(o.code)}</b></p><p class="muted center pulse">Соединяемся с брокером…</p><div class="spacer"></div><button class="btn ghost" onclick="cancelGuest()">Отмена</button>`;
+    return;
+  }
+  if (o.role === 'guest' && o.connectError) {
+    app.innerHTML = `<h1>Ошибка</h1><div class="card"><p style="color:#ff6b6b">${esc(o.connectError)}</p></div><button class="btn primary" onclick="retryGuest()">Снова</button><button class="btn ghost" onclick="cancelGuest()">В меню</button>`;
+    return;
+  }
+  const def = tg?.initDataUnsafe?.user?.first_name || '';
+  const g = getGuestSession();
+  let e = '';
+  if (g) e = `<div class="card" style="border:1px solid #4caf50;margin-bottom:10px"><p class="muted">У тебя есть комната <b>${esc(g.code)}</b></p><button class="btn primary small" onclick="restoreGuestFromMenu()">Вернуться</button><button class="btn ghost small" onclick="clearGuestSession();render()">Забыть</button></div>`;
+  app.innerHTML = `<h1>Присоединиться</h1>${e}<label class="muted">Твоё имя</label><input id="joinName" value="${esc(S.online.myName || def || '')}" placeholder="Игрок" style="margin:6px 0 12px"><label class="muted">Код</label><input id="joinCode" placeholder="ABCDE" maxlength="5" style="text-transform:uppercase;margin:6px 0 12px"><button class="btn primary" onclick="doJoin()">Войти</button><button class="btn ghost" onclick="S.screen='onlineMenu';render()">Назад</button>`;
+}
+screens.onlineJoin = onlineJoin;
+function doJoin() {
+  const n = document.getElementById('joinName').value.trim();
+  const c = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (!n || !c) { alert('Заполни имя и код'); return; }
+  if (c.length !== 5) { alert('Код из 5 символов'); return; }
+  S.online.myName = n; const gid = getGuestId();
+  saveGuestSession(c, n); guestStart(c, n, gid);
+}
+function cancelGuest() {
+  clearGuestSession(); mqttDisconnect();
+  S.online.role = null; S.online.code = ''; S.online.connecting = false; S.online.connectError = '';
+  S.screen = 'menu'; render();
+}
+function retryGuest() { const s = getGuestSession(); if (!s) { cancelGuest(); return; } guestStart(s.code, s.name, getGuestId()); }
+
+function onlineHostScreen(app) {
+  const o = S.online;
+  if (o.phase !== 'lobby') { onlineInGame(app, true); return; }
+  let st = '';
+  if (o.connecting) st = '<div class="status-line status-wait">⏳ Подключаемся к брокеру...</div>';
+  else if (!o.connected) st = '<div class="status-line status-wait pulse">🔄 Восстанавливаем связь...</div>';
+  else st = '<div class="status-line status-ok">✓ Комната активна</div>';
+  const guests = o.players.filter(p => p.id !== 'host');
+  const totalActive = activePlayers().length;
+  app.innerHTML = `<h1>Комната</h1><p class="muted center">Передай код друзьям.</p><div class="code-box">${esc(o.code)}</div><button class="btn primary" onclick="shareRoom()">📤 Поделиться кодом</button><button class="btn ghost small" onclick="copyCode()">Скопировать только код</button>${st}<div class="card"><p class="muted">В комнате (${totalActive})${o.useTimer ? ' • с таймером' : ''}:</p><div style="font-size:16px;line-height:1.6">${o.players.map(p => `• ${esc(p.name)}${p.id === 'host' ? ' (ты, хост)' : ''}${p.stale ? ' <span class="stale">⏳ офлайн</span>' : ''}`).join('<br>') || '<span class="muted">Ждём гостей…</span>'}</div>${guests.length === 0 ? '<p class="muted" style="margin-top:6px">Гости могут зайти по коду, даже когда ты офлайн. Ты их увидишь при возврате.</p>' : ''}</div><button class="btn primary" onclick="hostStartGame()" ${totalActive < 1 || !o.connected ? 'disabled' : ''}>Начать игру (${totalActive})</button><button class="btn ghost" onclick="hostLeaveRoom()">Выйти и удалить комнату</button><div class="debug">MQTT: ${o.connected?'✅':'❌'} | in: ${o.dbgIn} out: ${o.dbgOut} | ${esc(o.dbgLast)}</div>`;
+}
+screens.onlineHost = onlineHostScreen;
+
+function onlineGuestScreen(app) {
+  const o = S.online;
+  if (o.phase === 'lobby') {
+    const wait = !o.hostOnline;
+    app.innerHTML = `<h1>Комната ${esc(o.code)}</h1>${wait
+      ? `<div class="card" style="border:1px solid #ffb74d"><p style="color:#ffb74d;font-size:16px" class="pulse">⏳ Ждём хоста…</p><p class="muted">Ты в комнате. Хост вернётся — подключишься автоматически. Можно закрывать приложение.</p></div>`
+      : `<div class="card" style="border:1px solid #4caf50"><p style="color:#4caf50">✓ Хост на связи: <b>${esc(o.hostName || '...')}</b></p></div>`}<div class="card"><p class="muted">В комнате (${o.players.length}):</p><div style="font-size:16px;line-height:1.6">${o.players.map(p => { const n = typeof p === 'string' ? p : p.name; return `• ${esc(n)}${n === o.myName ? ' (ты)' : ''}`; }).join('<br>') || '<span class="muted">Пусто</span>'}</div></div><button class="btn ghost" onclick="guestLeaveRoom()">Выйти из комнаты</button><div class="debug">MQTT: ${o.connected?'✅':'❌'} | in: ${o.dbgIn} out: ${o.dbgOut} | hb: ${o.lastHostPing ? Math.round((Date.now()-o.lastHostPing)/1000)+'с' : 'нет'} | ${esc(o.dbgLast)}</div>`;
+    return;
+  }
+  if (!o.hostOnline) {
+    app.innerHTML = `<div class="spacer"></div><h1>⏳ Хост офлайн</h1><div class="spinner"></div><p class="muted center pulse">Ждём возврата хоста…</p><p class="muted center">Твоя роль сохранена. Игра продолжится автоматически.</p><div class="spacer"></div><button class="btn ghost" onclick="guestLeaveRoom()">Выйти</button>`;
+    return;
+  }
+  onlineInGame(app, false);
+}
+screens.onlineGuest = onlineGuestScreen;
+
+function onlineInGame(app, isHost) {
+  const o = S.online;
+  if (o.phase === 'reveal') {
+    const role = o.myRole; if (!role) { app.innerHTML = '<p class="center">Ждём роль...</p>'; return; }
+    if (!o.revealed) {
+      app.innerHTML = `<div class="spacer"></div><h1>Твоя роль</h1><p class="muted center">Смотри аккуратно.</p><div class="spacer"></div><button class="btn primary" onclick="revealAndReady()">Показать роль</button><div class="spacer"></div>`;
+    } else {
+      const activeNames = new Set(activePlayers().map(p => p.name));
+      const ready = o.readyPlayers.filter(n => activeNames.has(n));
+      const total = activePlayers().length;
+      const all = ready.length >= total;
+      const delayOk = all && (Date.now() - o.lastReadyAt) >= 3000;
+      const left = all && !delayOk ? Math.ceil((3000-(Date.now()-o.lastReadyAt))/1000) : 0;
+      let hb = '';
+      if (isHost) {
+        if (!all) hb = `<button class="btn primary" disabled>Начать (ждут ${total-ready.length})</button>`;
+        else if (!delayOk) hb = `<button class="btn primary" disabled>Начать (${left}…)</button>`;
+        else hb = `<button class="btn primary" onclick="hostStartDiscussion()">Начать обсуждение</button>`;
+      } else hb = '<p class="muted center">Ждём хоста...</p>';
+      app.innerHTML = `<div class="spacer"></div><div class="role-card ${role.isSpy?'spy':''}"><div class="role-label">${role.isSpy?'ТЫ ШПИОН':'ТВОЙ ВАРИАНТ'}</div><div class="role-value">${role.isSpy?'🕵️':esc(role.location)}</div></div><button class="btn ghost" onclick="S.online.revealed=false;render()">Скрыть</button><div class="spacer"></div><p class="muted center">Готовы: <b>${ready.length}/${total}</b></p>${hb}`;
+      if (all && !delayOk) setTimeout(() => render(), 500);
+    }
+    return;
+  }
+  if (o.phase === 'play') {
+    let timerHtml = '';
+    if (o.useTimer) {
+      const mm = String(Math.floor(S.timer.left/60)).padStart(2,'0');
+      const ss = String(S.timer.left%60).padStart(2,'0');
+      const w = S.timer.left <= 60;
+      timerHtml = `<div class="timer ${w?'warn':''}">${mm}:${ss}</div>`;
+    }
+    app.innerHTML = `${timerHtml}<div class="chat-container"><div class="chat-messages" id="chatBox">${renderChat()}</div><div class="chat-input-row"><input id="chatInput" placeholder="Сообщение..." autocomplete="off" autocorrect="off" autocapitalize="sentences"><button onclick="doSendChat()">➤</button></div></div>${isHost ? '<button class="btn primary" onclick="hostStartVote()" style="margin-top:8px">К голосованию</button>' : '<p class="muted center" style="margin-top:8px">Ждём хоста...</p>'}`;
+    const input = document.getElementById('chatInput');
+    if (input && !('ontouchstart' in window)) input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSendChat(); } });
+    setTimeout(() => { const cb = document.getElementById('chatBox'); if (cb) cb.scrollTop = cb.scrollHeight; }, 0);
+    return;
+  }
+  if (o.phase === 'vote') {
+    app.innerHTML = `<h1>Кто шпион?</h1><div class="player-list" id="voteList"></div><div class="spacer"></div>${o.myVote ? '<p class="muted center">Твой голос: <b>'+esc(o.myVote)+'</b></p>' : '<p class="muted center">Тапни на игрока</p>'}`;
+    const list = document.getElementById('voteList');
+    o.players.forEach(p => {
+      const name = typeof p === 'string' ? p : p.name;
+      const el = document.createElement('div');
+      el.className = 'player-item' + (o.myVote === name ? ' selected' : '');
+      el.textContent = name + (name === o.myName ? ' (ты)' : '');
+      el.onclick = () => { if (o.myVote) return; if (isHost) hostSendVote(name); else guestSendVote(name); };
+      list.appendChild(el);
+    });
+    return;
+  }
+  if (o.phase === 'result') {
+    const r = o.result; if (!r) { app.innerHTML = '<p class="center">Считаем...</p>'; return; }
+    app.innerHTML = `<h1>${r.caught?'✅ Шпион пойман!':'❌ Шпион ушёл'}</h1><div class="card"><p class="muted">Шпион</p><div class="big">${esc(r.spyName || '—')}</div><p class="muted">Вариант</p><div class="big">${esc(r.location)}</div><p class="muted">Большинство</p><div class="big">${esc(r.voted||'—')}</div></div>${isHost ? '<button class="btn primary" onclick="hostRestart()">Играть ещё</button>' : '<p class="muted center">Ждём хоста...</p>'}<button class="btn ghost" onclick="leaveAnyRoom()">Выйти</button>`;
+    return;
+  }
+  app.innerHTML = '<p class="center">Ждём...</p>';
+}
+function revealAndReady() {
+  S.online.revealed = true;
+  if (S.online.role === 'host') hostSendReady();
+  else guestSendReady();
+  render();
+}
+function leaveAnyRoom() { if (S.online.role === 'host') hostLeaveRoom(); else guestLeaveRoom(); }
+
+function showRules() {
+  alert("Правила:\n\n1. Один игрок — шпион, не знает вариант.\n2. Остальные знают вариант.\n3. По кругу задавайте вопросы.\n4. Шпион должен понять, что за вариант, и не выдать себя.\n5. Голосование: кто шпион?\n6. Угадали — победили игроки. Нет — победил шпион.");
+}
+
+(function autoRestore() {
+  const h = getHostSession(), g = getGuestSession();
+  if (h) setTimeout(() => hostRestoreRoom(), 200);
+  else if (g) setTimeout(() => restoreGuestFromMenu(), 200);
+})();
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (S.online.role === 'host' && !S.online.connected) hostStart(S.online.code, S.online.myName, S.online.useTimer);
+    else if (S.online.role === 'guest' && !S.online.connected) guestStart(S.online.code, S.online.myName, S.online.myGuestId);
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  if (S.online.role === 'guest' && S.online.connected && S.online.code && S.online.myGuestId) {
+    mqttClear(tHello(S.online.code, S.online.myGuestId));
+  }
+});
+
+render();
+document.addEventListener('pointerdown',()=>{if(!AMBIENT.muted)startAmbient()},{once:true,passive:true});
+</script>
+</body>
+</html>
