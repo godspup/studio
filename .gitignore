@@ -1,0 +1,22 @@
+# Патчер и история версий — не публикуем
+.patch-backups/
+**/.patch-backups/
+tools/
+**/tools/
+PATCHER.TXT
+
+# Личные заметки
+selfnote.txt
+**/selfnote.txt
+ROADMAP.txt
+**/ROADMAP.txt
+
+# Дев-превью
+previews/
+**/previews/
+
+# Мусор
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

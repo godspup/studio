@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Покер за 5 минут</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#000;color:#e8e8e8;touch-action:none}
+  #scene{display:block;width:100vw;height:100vh;touch-action:none}
+
+  #progressTrack{position:fixed;top:0;left:0;right:0;height:3px;background:rgba(0,0,0,.6);z-index:50;pointer-events:none}
+  #progressFill{height:100%;background:linear-gradient(90deg,#ffd76a,#ffa030);width:0%;transition:width .5s;box-shadow:0 0 10px #ffd76a}
+  #stepLabel{position:fixed;top:10px;right:16px;font-size:11px;color:#ffd76a;letter-spacing:2px;font-weight:700;text-shadow:0 2px 6px rgba(0,0,0,.9);z-index:50;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:12px;pointer-events:none}
+
+  #whatsHappening{
+    position:fixed;top:44px;right:14px;
+    padding:8px 14px;
+    background:linear-gradient(180deg,rgba(40,60,45,.92),rgba(20,30,20,.95));
+    border:1.5px solid rgba(255,215,120,.6);border-radius:10px;
+    color:#ffd76a;font-size:11px;font-weight:800;
+    letter-spacing:1.2px;text-transform:uppercase;
+    cursor:pointer;font-family:inherit;z-index:55;
+    box-shadow:0 6px 20px rgba(0,0,0,.6);
+    display:none;align-items:center;gap:6px;
+    transition:all .2s;
+  }
+  #whatsHappening.visible{display:flex}
+  #whatsHappening:hover{transform:translateY(-1px);border-color:rgba(255,215,120,1)}
+  #whatsHappening::before{content:'?';display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#ffd76a;color:#1a1a1a;font-size:11px;font-weight:900}
+
+  #whatsHappeningPanel{
+    position:fixed;top:90px;right:14px;width:min(280px,calc(100vw - 28px));
+    background:linear-gradient(180deg,rgba(15,22,15,.98),rgba(8,12,8,.99));
+    border:1.5px solid #ffd76a;border-radius:12px;
+    padding:14px;z-index:56;
+    box-shadow:0 20px 60px rgba(0,0,0,.85);
+    display:none;
+    animation:slideDown .25s;
+  }
+  @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  #whatsHappeningPanel.visible{display:block}
+  #whatsHappeningPanel h4{font-family:Georgia,serif;font-size:14px;color:#ffd76a;margin-bottom:8px;letter-spacing:.5px}
+  #whatsHappeningPanel p{font-size:12.5px;line-height:1.55;color:#d8e0d8}
+  #whatsHappeningPanel .close-mini{
+    position:absolute;top:8px;right:10px;
+    background:none;border:none;color:#ffd76a;font-size:16px;cursor:pointer;
+    font-family:inherit;
+  }
+
+  #brainrotBtn{
+    position:fixed;top:44px;left:14px;
+    padding:7px 12px;
+    background:linear-gradient(180deg,rgba(60,20,60,.92),rgba(30,10,30,.95));
+    border:1.5px solid rgba(255,120,255,.6);border-radius:10px;
+    color:#ff8aff;font-size:11px;font-weight:800;
+    letter-spacing:.8px;text-transform:uppercase;
+    cursor:pointer;font-family:inherit;z-index:55;
+    box-shadow:0 6px 20px rgba(0,0,0,.6);
+    transition:all .2s;
+    max-width:190px;line-height:1.3;text-align:left;
+  }
+  #brainrotBtn:hover{transform:translateY(-1px);border-color:#ff8aff}
+
+  #banner{
+    position:fixed;top:80px;left:50%;transform:translateX(-50%);
+    padding:6px 18px;background:rgba(0,0,0,.82);
+    border:1px solid rgba(255,215,120,.6);border-radius:20px;
+    color:#ffd76a;font-size:12px;font-weight:700;letter-spacing:1.5px;
+    text-transform:uppercase;opacity:0;transition:opacity .3s;
+    z-index:30;pointer-events:none;white-space:nowrap;
+    box-shadow:0 6px 24px rgba(0,0,0,.7),0 0 20px rgba(255,215,120,.25);
+  }
+  #banner.active{opacity:1}
+
+  #tutorial{
+    position:fixed;left:0;right:0;bottom:0;
+    background:linear-gradient(180deg,rgba(12,16,12,.82) 0%,rgba(6,10,6,.97) 40%,rgba(4,6,4,.99) 100%);
+    border-top:1px solid rgba(255,215,120,.3);
+    padding:12px 14px 14px;
+    z-index:20;backdrop-filter:blur(12px);
+    box-shadow:0 -12px 40px rgba(0,0,0,.8);
+    max-height:36vh;overflow-y:auto;
+    animation:slideUp .35s cubic-bezier(.2,.8,.3,1);
+  }
+  #tutorial::-webkit-scrollbar{width:3px}
+  #tutorial::-webkit-scrollbar-thumb{background:rgba(255,215,120,.4);border-radius:2px}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+
+  #tutTitle{font-family:Georgia,serif;font-size:16px;color:#ffd76a;letter-spacing:.3px;margin-bottom:6px;line-height:1.2;text-shadow:0 0 20px rgba(255,215,120,.35)}
+  #tutText{font-size:13.5px;line-height:1.55;color:#dde4dd;margin-bottom:10px}
+  #tutText b{color:#fff}
+  #tutText em{color:#ffd76a;font-style:normal;font-weight:600}
+
+  .term{color:#ffd76a;border-bottom:1px dashed rgba(255,215,120,.7);cursor:pointer;padding:0 1px;transition:all .15s;font-weight:600;white-space:nowrap}
+  .term:active,.term:hover{color:#fff;background:rgba(255,215,120,.25);border-radius:3px;padding:0 4px}
+
+  #tutNav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #choices{display:none;gap:8px;margin-top:10px;flex-wrap:wrap}
+  #choices.active{display:flex}
+  .choice{
+    flex:1;min-width:120px;
+    padding:11px 12px;
+    background:linear-gradient(180deg,rgba(40,55,40,.9),rgba(20,28,20,.95));
+    border:1.5px solid rgba(255,215,120,.35);
+    border-radius:10px;color:#e8e8e8;font-size:13px;font-weight:600;
+    cursor:pointer;text-align:center;font-family:inherit;
+    transition:all .2s;line-height:1.3;
+  }
+  .choice:hover:not(:disabled){border-color:rgba(255,215,120,.9);transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,215,120,.25)}
+  .choice:disabled{cursor:default}
+  .choice.correct{background:linear-gradient(180deg,rgba(40,140,55,.95),rgba(20,70,25,.95));border-color:#4cd060;color:#fff;animation:pulseGood .5s}
+  .choice.wrong{background:linear-gradient(180deg,rgba(140,45,45,.95),rgba(70,20,20,.95));border-color:#e05050;color:#fff}
+  @keyframes pulseGood{0%,100%{transform:scale(1)}50%{transform:scale(1.05);box-shadow:0 0 30px rgba(76,208,96,.7)}}
+  .feedback-block{flex-basis:100%;margin-top:8px;padding:10px 13px;background:rgba(255,215,120,.1);border-left:3px solid #ffd76a;border-radius:6px;font-size:12.5px;line-height:1.55;color:#dde4dd}
+
+  .btn{padding:10px 22px;border-radius:9px;font-family:inherit;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .15s;border:none;white-space:nowrap}
+  .btn-primary{background:linear-gradient(180deg,#ffd76a,#c89830);color:#1a1a1a;box-shadow:0 4px 16px rgba(255,215,120,.4)}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,215,120,.55)}
+  .btn-primary:active{transform:scale(.97)}
+  .btn-ghost{background:transparent;color:#ffd76a;border:1.5px solid rgba(255,215,120,.5)}
+  .btn-ghost:active{background:rgba(255,215,120,.15)}
+
+  .rank-list{display:flex;flex-direction:column;gap:5px;margin:8px 0}
+  .rank-item{display:flex;align-items:center;gap:10px;padding:7px 10px;background:linear-gradient(180deg,rgba(30,45,30,.7),rgba(15,22,15,.85));border:1px solid rgba(255,215,120,.15);border-radius:8px}
+  .rank-num{width:22px;height:22px;border-radius:50%;background:linear-gradient(180deg,#ffd76a,#c89830);color:#1a1a1a;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;flex-shrink:0}
+  .rank-item.top .rank-num{background:linear-gradient(180deg,#ff5555,#a02020);color:#fff}
+  .rank-info{flex:1;min-width:0}
+  .rank-name{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:1px}
+  .rank-desc{font-size:10.5px;color:#8a9a8a}
+  .rank-cards{display:flex;gap:2px;flex-shrink:0}
+  .mini-card{width:19px;height:26px;background:#fff;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#1a1a1a;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .mini-card.red{color:#c9261a}
+
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .action{padding:9px 11px;background:linear-gradient(180deg,rgba(30,45,30,.7),rgba(15,22,15,.85));border:1px solid rgba(255,215,120,.2);border-radius:8px}
+  .action-name{font-size:12.5px;font-weight:700;color:#ffd76a;margin-bottom:2px}
+  .action-desc{font-size:11px;color:#c8d0c8;line-height:1.35}
+
+  .tip{display:flex;gap:10px;padding:8px 11px;margin-bottom:5px;background:linear-gradient(180deg,rgba(30,45,30,.6),rgba(15,22,15,.75));border-left:3px solid #ffd76a;border-radius:6px}
+  .tip-num{color:#ffd76a;font-weight:900;font-size:16px;flex-shrink:0}
+  .tip-text{font-size:12px;color:#d8e0d8;line-height:1.45}
+
+  #termPopup{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);padding:18px}
+  #termPopup.active{display:flex;animation:fadeIn .2s}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .term-card{width:min(420px,100%);background:linear-gradient(180deg,#1a2820,#0f1813);border:2px solid #ffd76a;border-radius:14px;padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.95),0 0 40px rgba(255,215,106,.3);animation:popIn .3s cubic-bezier(.2,.8,.3,1.2);max-height:85vh;overflow-y:auto}
+  @keyframes popIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  .term-card-title{font-family:Georgia,serif;font-size:20px;color:#ffd76a;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .term-card-close{width:28px;height:28px;border-radius:50%;background:rgba(255,215,120,.15);border:1px solid rgba(255,215,120,.4);color:#ffd76a;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;flex-shrink:0}
+  .term-card-body{font-size:14px;line-height:1.6;color:#dde4dd}
+  .term-card-body em{color:#ffd76a;font-style:normal;font-weight:600}
+  .term-card-example{margin-top:12px;padding:10px 12px;background:rgba(255,215,120,.08);border-left:3px solid #ffd76a;border-radius:6px;font-size:12.5px;color:#c8d0c8;line-height:1.5}
+  .term-card-example b{color:#ffd76a}
+
+  #quiz{position:fixed;inset:0;z-index:80;display:none;background:radial-gradient(ellipse at center,#0f1a12,#050a06);padding:16px;overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start}
+  #quiz.active{display:flex}
+  .quiz-inner{width:min(540px,100%);margin:auto 0;padding:12px}
+  .quiz-header{text-align:center;margin-bottom:14px}
+  .quiz-header h2{font-family:Georgia,serif;font-size:22px;color:#ffd76a;margin-bottom:4px}
+  .quiz-header .prog{font-size:11px;color:#8a9a8a;letter-spacing:2px}
+  .quiz-scenario{padding:14px;margin-bottom:10px;background:linear-gradient(180deg,rgba(30,50,35,.7),rgba(15,25,20,.85));border:1px solid rgba(255,215,120,.3);border-radius:12px}
+  .quiz-scenario-label{font-size:10px;color:#8a9a8a;letter-spacing:2px;margin-bottom:8px;text-transform:uppercase}
+  .quiz-cards{display:flex;gap:5px;justify-content:center;margin:8px 0;flex-wrap:wrap}
+  .qCard{width:44px;height:62px;background:linear-gradient(180deg,#fff,#f0f0f0);border-radius:5px;display:flex;flex-direction:column;justify-content:space-between;padding:3px;color:#1a1a1a;font-weight:900;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  .qCard.red{color:#c9261a}
+  .qCard .bc-bottom{transform:rotate(180deg);align-self:flex-end;font-size:9px;opacity:.7}
+  .quiz-question{font-size:14px;color:#e8e8e8;margin:8px 0;line-height:1.5;font-weight:500;text-align:center}
+  .quiz-options{display:flex;flex-direction:column;gap:7px}
+  .qOpt{padding:12px 15px;background:linear-gradient(180deg,rgba(30,50,35,.85),rgba(15,25,20,.9));border:1.5px solid rgba(255,215,120,.3);border-radius:10px;color:#d8e0d8;font-size:13px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:all .2s;line-height:1.4}
+  .qOpt:hover:not(:disabled){border-color:rgba(255,215,120,.8);transform:translateX(3px)}
+  .qOpt:disabled{cursor:default}
+  .qOpt.correct{background:linear-gradient(180deg,rgba(40,140,55,.9),rgba(20,70,25,.9));border-color:#4cd060;color:#fff}
+  .qOpt.wrong{background:linear-gradient(180deg,rgba(140,45,45,.9),rgba(70,20,20,.9));border-color:#e05050;color:#fff}
+  .qOpt .term{color:#ffe8a0}
+  .quiz-feedback{margin-top:10px;padding:12px;background:rgba(255,215,120,.08);border-radius:10px;font-size:12.5px;line-height:1.55;color:#d8ded8;border-left:3px solid #ffd76a}
+  .quiz-feedback b{color:#ffd76a}
+  .quiz-result{text-align:center;padding:20px 14px}
+  .quiz-result .score{font-family:Georgia,serif;font-size:54px;color:#ffd76a;line-height:1;margin-bottom:8px;text-shadow:0 0 40px rgba(255,215,106,.5)}
+  .quiz-result .score-label{font-size:11px;color:#8a9a8a;letter-spacing:2px;margin-bottom:16px}
+  .quiz-result .verdict{font-size:15px;color:#e8e8e8;margin-bottom:16px;line-height:1.5}
+  .quiz-restart{padding:12px 26px;background:linear-gradient(180deg,#ffd76a,#a88830);color:#1a1a1a;border:none;border-radius:10px;font-size:12px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;box-shadow:0 6px 20px rgba(255,215,120,.4)}
+
+  @media (max-width:500px){
+    #tutorial{padding:10px 12px;max-height:42vh}
+    #tutTitle{font-size:15px}
+    #tutText{font-size:12.5px}
+    .choice{padding:9px 10px;font-size:12px;min-width:80px}
+    .btn{padding:9px 16px;font-size:12px}
+    #brainrotBtn{font-size:10px;max-width:150px;padding:6px 10px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div id="progressTrack"><div id="progressFill"></div></div>
+<div id="stepLabel">1 / 10</div>
+<div id="banner"></div>
+
+<button id="brainrotBtn">🧠 Брейнрот 1/3 · тап для переключения</button>
+
+<button id="whatsHappening">Что происходит</button>
+<div id="whatsHappeningPanel">
+  <button class="close-mini" onclick="document.getElementById('whatsHappeningPanel').classList.remove('visible')">✕</button>
+  <h4 id="whTitle">Состояние стола</h4>
+  <p id="whText"></p>
+</div>
+
+<div id="tutorial">
+  <div id="tutTitle"></div>
+  <div id="tutText"></div>
+  <div id="choices"></div>
+  <div id="tutNav">
+    <button class="btn btn-ghost" id="backBtn">← Назад</button>
+    <button class="btn btn-primary" id="nextBtn">Далее →</button>
+  </div>
+</div>
+
+<div id="termPopup">
+  <div class="term-card">
+    <div class="term-card-title">
+      <span id="termTitle"></span>
+      <button class="term-card-close" onclick="closeTerm()">✕</button>
+    </div>
+    <div class="term-card-body" id="termBody"></div>
+    <div class="term-card-example" id="termExample"></div>
+  </div>
+</div>
+
+<div id="quiz"><div class="quiz-inner" id="quizInner"></div></div>
+
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ═══════════════ TERMS ═══════════════
+const TERMS = {
+  'холдем': { title:'Техасский холдем', body:'Самый популярный вид покера. Ты получаешь <em>2 карты в закрытую</em>, на стол выкладывают <em>5 общих карт</em>. Из 7 карт собираешь лучшую пятёрку.', example:'<b>Пример:</b> у тебя A♠ K♠, на столе A♥ 7♦ 2♣ K♦ 5♠ — две пары (тузы и короли).' },
+  'блайнд': { title:'Блайнд', body:'Обязательная ставка перед раздачей. Двое игроков слева от дилера кладут деньги в <em>банк</em>, чтобы был стартовый котёл.', example:'<b>Малый блайнд</b> = 1 фишка, <b>большой</b> = 2. Дальше все решают: продолжить или сбросить.' },
+  'флоп': { title:'Флоп', body:'Первые <em>3 общие карты</em> на столе. После них — второй раунд ставок.', example:'У тебя A♠ K♠, флоп A♥ 7♦ 2♣ — попал в <b>топ-пару</b>.' },
+  'тёрн': { title:'Тёрн', body:'<em>Четвёртая общая карта</em>. Приходит после ставок на флопе.', example:'На флопе A♥ 7♦ 2♣ у тебя пара тузов. На тёрне K♦ — уже <b>две пары</b>.' },
+  'ривер': { title:'Ривер', body:'<em>Пятая и последняя общая карта</em>. После неё — последний раунд ставок.', example:'На ривере K♥ — у тебя <b>фулл-хаус</b>.' },
+  'банк': { title:'Банк', body:'Общий «котёл» всех денег, которые поставили игроки. Победитель забирает весь банк.', example:'Если в банке 100 фишек и ты выиграл — забираешь все 100.' },
+  'фолд': { title:'Фолд', body:'Сбросить карты. Ты выходишь из раздачи. Деньги, которые уже поставил, <em>остаются в банке</em>.', example:'Хороший игрок фолдит 70% слабых рук — это не слабость, а экономия.' },
+  'чек': { title:'Чек', body:'Пропустить ход, не ставя денег. Можно только если <em>до тебя никто не поставил</em>.', example:'Если все чекают — банк не растёт, смотрим следующую карту бесплатно.' },
+  'колл': { title:'Колл', body:'Уравнять ставку другого. Ты ставишь <em>столько же</em>, сколько поставили до тебя.', example:'Враг ставит 10 фишек, ты коллируешь — тоже 10. «Я в деле».' },
+  'рейз': { title:'Рейз', body:'<em>Повысить ставку</em>. Ты ставишь больше предыдущего игрока. Сигнал: «у меня сильная рука».', example:'Враг ставит 10, ты рейзишь до 30. Он коллирует или фолдит — оба варианта выгодны.' },
+  'олл-ин': { title:'Олл-ин', body:'Поставить <em>все свои фишки</em>. Либо максимально сильная рука, либо отчаянный блеф.', example:'Со стеком 500 фишек идёшь олл-ин — либо удвоишь, либо проиграешь всё.' },
+  'префлоп': { title:'Префлоп', body:'Первый раунд ставок, когда у игроков только <em>2 карты на руках</em>, а общих карт ещё нет.', example:'Ты получаешь A♠ K♠ — это префлоп. Смотришь, рейзить или коллировать.' },
+  'стартовая-рука': { title:'Стартовая рука', body:'2 карты, которые ты получаешь в начале раздачи. Видишь только ты. От силы руки зависит, играть или фолдить.', example:'<b>A♠ K♠</b> — премиум. <b>7♦ 2♣</b> — мусор, всегда фолд.' },
+  'топ-пара': { title:'Топ-пара', body:'Пара с <em>самой старшей картой на столе</em>. Очень сильная рука.', example:'У тебя A♠ K♠, борд A♥ 7♦ 2♣ — топ-пара (тузы) с топ-кикером (король).' },
+  'кикер': { title:'Кикер', body:'Пятая карта в комбинации. Если у двоих одинаковая пара, побеждает тот, у кого <em>кикер старше</em>.', example:'У тебя A♠ K♠, у врага A♦ Q♣. У обоих пара тузов, но твой K старше его Q.' },
+  'фулл-хаус': { title:'Фулл-хаус', body:'<em>3 карты одного достоинства + 2 другого</em>. Четвёртая по силе рука, бьёт флеш и стрит.', example:'K♠ K♥ K♦ + A♠ A♥ — «короли с тузами».' },
+  'флеш': { title:'Флеш', body:'<em>5 карт одной масти</em>. Сильная рука — например, все пять червей. Если у двух игроков флеш, побеждает старшая карта.', example:'A♥ K♥ 9♥ 5♥ 2♥ — флеш на червях с тузом.' },
+  'натс': { title:'Натс', body:'<em>Лучшая возможная рука на текущий момент</em>. Если у тебя натс — тебя никто не может побить, максимум разделить банк.', example:'На борде A♥ 9♥ 5♥ 3♣ K♥ у тебя A♠ Q♥ — у тебя натс-флеш (наивысший флеш на червях).' },
+  'шоудаун': { title:'Шоудаун', body:'Вскрытие карт. Все показывают свои руки. Побеждает лучшая пятёрка.', example:'У тебя фулл-хаус, у врага пара — ты забираешь банк.' },
+  'борд': { title:'Борд', body:'Все <em>общие карты на столе</em> вместе. Их видят все игроки.', example:'«Борд A-K-7-2-5» — на столе туз, король, семёрка, двойка и пятёрка.' },
+  'дилер': { title:'Дилер (кнопка)', body:'Тот, кто раздаёт карты. Отмечен <em>специальной кнопкой</em>. Блайнды ставят двое слева от дилера. Позиция дилера — лучшая за столом.', example:'Дилер ходит последним и видит все действия до себя.' },
+  'шансы-банка': { title:'Шансы банка', body:'Соотношение между <em>суммой к оплате</em> и <em>суммой в банке</em>. Если шансы хорошие — колл выгоден.', example:'В банке 100, враг ставит 20. Ты платишь 20 за шанс выиграть 120 — шансы 1 к 6, отлично.' },
+  'позиция': { title:'Позиция', body:'Место за столом относительно дилера. <em>Поздняя позиция</em> — ты ходишь последним и видишь всё. <em>Ранняя</em> — ходишь вслепую.', example:'Кнопка — лучшая позиция. Первый после блайндов — худшая.' }
+};
+
+// ═══════════════ SCENE ═══════════════
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1008);
+scene.fog = new THREE.Fog(0x1a1008, 8, 20);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.05, 100);
+
+// ─── CAMERA ORBIT CONTROLS ───
+const CAM_TARGET = new THREE.Vector3(0, 0.85, -0.35);
+const CAM_BASE_RADIUS = 1.85;
+const CAM_BASE_HEIGHT = 1.75;
+let camAngle = 0;
+let camElev = 0;
+const CAM_ANGLE_MIN = -0.85;
+const CAM_ANGLE_MAX = 0.85;
+const CAM_ELEV_MIN = -0.30;
+const CAM_ELEV_MAX = 0.55;
+
+function updateCamera(){
+  const r = CAM_BASE_RADIUS;
+  const x = CAM_TARGET.x + Math.sin(camAngle) * r;
+  const z = CAM_TARGET.z + Math.cos(camAngle) * r;
+  const y = CAM_BASE_HEIGHT + camElev;
+  camera.position.set(x, y, z);
+  camera.lookAt(CAM_TARGET.x, CAM_TARGET.y + camElev * 0.3, CAM_TARGET.z);
+}
+updateCamera();
+
+// ═══════════════ LIGHTS ═══════════════
+scene.add(new THREE.AmbientLight(0x604838, 1.7));
+scene.add(new THREE.HemisphereLight(0xffe0b0, 0x3a2818, 1.1));
+
+const lampLight = new THREE.PointLight(0xffe0b0, 9, 12, 1.5);
+lampLight.position.set(0, 2.3, 0);
+lampLight.castShadow = true;
+lampLight.shadow.mapSize.set(2048, 2048);
+lampLight.shadow.camera.near = 0.3;
+lampLight.shadow.camera.far = 8;
+lampLight.shadow.bias = -0.0005;
+lampLight.shadow.radius = 3;
+scene.add(lampLight);
+
+const f1 = new THREE.PointLight(0xffa860, 2.0, 8);
+f1.position.set(-2.5, 1.8, 1.2);
+scene.add(f1);
+const f2 = new THREE.PointLight(0xffc080, 1.7, 8);
+f2.position.set(2.5, 1.7, -0.5);
+scene.add(f2);
+const f3 = new THREE.PointLight(0xffb070, 1.4, 8);
+f3.position.set(0, 1.8, -3);
+scene.add(f3);
+
+// ═══════════════ ROOM ═══════════════
+const floorTex = (()=>{
+  const c = document.createElement('canvas'); c.width=c.height=512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#5a3818'; ctx.fillRect(0,0,512,512);
+  for (let i=0;i<8;i++){
+    for (let j=0;j<16;j++){
+      const sh = 60 + Math.random()*40;
+      ctx.fillStyle = `rgb(${sh+30},${sh*0.6+15},${sh*0.3})`;
+      ctx.fillRect(i*64+(j%2)*32, j*32, 62, 30);
+    }
+  }
+  for (let i=0;i<1000;i++){
+    ctx.strokeStyle = `rgba(20,10,5,${0.15+Math.random()*0.2})`;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(Math.random()*512, Math.random()*512);
+    ctx.lineTo(Math.random()*512, Math.random()*512+30);
+    ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(2,2);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 }));
+floor.rotation.x = -Math.PI/2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const wallTex = (()=>{
+  const c = document.createElement('canvas'); c.width=256; c.height=256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#4a2a14'; ctx.fillRect(0,0,256,256);
+  for (let i=0;i<300;i++){
+    ctx.fillStyle = `rgba(${30+Math.random()*40},${15+Math.random()*20},${5+Math.random()*10},${0.25})`;
+    ctx.fillRect(Math.random()*256, Math.random()*256, 2, 20+Math.random()*40);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(3,2);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xb08050, roughness: 0.9 });
+
+const backWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), wallMat);
+backWall.position.set(0, 2.5, -4.5);
+backWall.receiveShadow = true;
+scene.add(backWall);
+const lWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), wallMat);
+lWall.rotation.y = Math.PI/2;
+lWall.position.set(-5, 2.5, 0);
+lWall.receiveShadow = true;
+scene.add(lWall);
+const rWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), wallMat);
+rWall.rotation.y = -Math.PI/2;
+rWall.position.set(5, 2.5, 0);
+rWall.receiveShadow = true;
+scene.add(rWall);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(12,12), new THREE.MeshStandardMaterial({ color: 0x2a1a0c, roughness: 1 }));
+ceil.position.y = 4.5;
+ceil.rotation.x = Math.PI/2;
+scene.add(ceil);
+
+const beamMat = new THREE.MeshStandardMaterial({ color: 0x3a2008, roughness: 0.9 });
+for (let i=0;i<3;i++){
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(11, 0.2, 0.25), beamMat);
+  beam.position.set(0, 4.4, -3 + i*3);
+  beam.castShadow = true;
+  scene.add(beam);
+}
+
+const lampCord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.5, 6), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+lampCord.position.set(0, 3.75, 0);
+scene.add(lampCord);
+const lampShade = new THREE.Mesh(
+  new THREE.ConeGeometry(0.35, 0.28, 24, 1, true),
+  new THREE.MeshStandardMaterial({ color: 0xc89840, metalness: 0.7, roughness: 0.4, side: THREE.DoubleSide })
+);
+lampShade.position.set(0, 2.95, 0);
+scene.add(lampShade);
+const lampBulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), new THREE.MeshBasicMaterial({ color: 0xfff0c0 }));
+lampBulb.position.set(0, 2.8, 0);
+scene.add(lampBulb);
+
+// ═══════════════ BRAINROT TV ═══════════════
+const brainrotCanvas = document.createElement('canvas');
+brainrotCanvas.width = 512;
+brainrotCanvas.height = 320;
+const brainrotCtx = brainrotCanvas.getContext('2d');
+const brainrotTex = new THREE.CanvasTexture(brainrotCanvas);
+brainrotTex.minFilter = THREE.LinearFilter;
+brainrotTex.magFilter = THREE.LinearFilter;
+
+const boardFrame = new THREE.Mesh(
+  new THREE.BoxGeometry(2.1, 1.4, 0.08),
+  new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.5, metalness: 0.3 })
+);
+boardFrame.position.set(0, 2.6, -4.4);
+scene.add(boardFrame);
+
+const boardMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.95, 1.22),
+  new THREE.MeshStandardMaterial({ map: brainrotTex, roughness: 0.6, emissive: 0xffffff, emissiveMap: brainrotTex, emissiveIntensity: 0.55 })
+);
+boardMesh.position.set(0, 2.6, -4.35);
+scene.add(boardMesh);
+
+const signCanvas = document.createElement('canvas');
+signCanvas.width = 512; signCanvas.height = 64;
+const signCtx = signCanvas.getContext('2d');
+signCtx.fillStyle = '#1a1008';
+signCtx.fillRect(0,0,512,64);
+signCtx.fillStyle = '#ff8aff';
+signCtx.font = 'bold 34px Georgia, serif';
+signCtx.textAlign = 'center';
+signCtx.textBaseline = 'middle';
+signCtx.fillText('🧠 БРЕЙНРОТ ДЛЯ ЗУМЕРОВ', 256, 34);
+const signTex = new THREE.CanvasTexture(signCanvas);
+signTex.colorSpace = THREE.SRGBColorSpace;
+const signMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.6, 0.2),
+  new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xff8aff, emissiveIntensity: 0.35, emissiveMap: signTex })
+);
+signMesh.position.set(0, 1.78, -4.35);
+scene.add(signMesh);
+
+const TV_W = 512, TV_H = 320;
+let brainrotMode = 0;
+const BRAINROT_MODES = ['Спираль', 'Паркур', 'Комбайн'];
+let brainrotTime = 0;
+
+// ─── CH 1: SPIRAL ───
+const TV_CX = TV_W / 2;
+const TV_CY = TV_H / 2;
+const TV_RING_DEFS = [
+  { r: 22,  n: 12, w: 5,   rotSpeed:  0.0009,  color: '#00ffff' },
+  { r: 38,  n: 18, w: 5,   rotSpeed: -0.00085, color: '#00ff88' },
+  { r: 56,  n: 24, w: 5.5, rotSpeed:  0.0008,  color: '#88ff00' },
+  { r: 76,  n: 32, w: 6,   rotSpeed: -0.00075, color: '#ffaa00' },
+  { r: 98,  n: 40, w: 6,   rotSpeed:  0.0007,  color: '#ff6600' },
+  { r: 122, n: 50, w: 6.5, rotSpeed: -0.00065, color: '#ff3366' },
+  { r: 148, n: 60, w: 7,   rotSpeed:  0.0006,  color: '#ff00aa' },
+  { r: 176, n: 72, w: 7,   rotSpeed: -0.00055, color: '#bb00ff' },
+  { r: 206, n: 84, w: 7.5, rotSpeed:  0.0005,  color: '#6699ff' },
+];
+const TV_GRAVITY = 0.085;
+const TV_MAX_SPEED = 7.5;
+const TV_MIN_SPEED = 4;
+let tv1;
+
+function initTV1(){
+  tv1 = {
+    rings: TV_RING_DEFS.map(def => ({
+      ...def,
+      angle: Math.random() * Math.PI * 2,
+      gapIdx: Math.floor(Math.random() * def.n),
+      tiles: Array.from({ length: def.n }, () => ({ active: true, respawnAt: 0 })),
+    })),
+    ball: { x: TV_CX, y: TV_CY, vx: 0, vy: 0, r: 4.2 },
+    trail: [], particles: [],
+    escaped: false, escapedAt: 0,
+    startAt: performance.now(),
+  };
+  const a = Math.random() * Math.PI * 2;
+  tv1.ball.vx = Math.cos(a) * 4;
+  tv1.ball.vy = Math.sin(a) * 4 - 2;
+}
+
+function stepTV1Ball(s, now, dt){
+  const ball = s.ball;
+  const norm = Math.min(2, dt / 16.67);
+  const steps = 4, sub = norm / steps;
+  for (let k = 0; k < steps; k++){
+    ball.vy += TV_GRAVITY * sub;
+    const spNow = Math.hypot(ball.vx, ball.vy);
+    if (spNow > TV_MAX_SPEED){ ball.vx *= TV_MAX_SPEED / spNow; ball.vy *= TV_MAX_SPEED / spNow; }
+    ball.x += ball.vx * sub;
+    ball.y += ball.vy * sub;
+    const dx = ball.x - TV_CX, dy = ball.y - TV_CY;
+    const dist = Math.hypot(dx, dy) || 0.001;
+    const outerR = s.rings[s.rings.length - 1].r;
+    if (dist > outerR + 60){ s.escaped = true; s.escapedAt = now; return; }
+    for (const ring of s.rings){
+      const halfW = ring.w / 2;
+      const innerB = ring.r - halfW - ball.r;
+      const outerB = ring.r + halfW + ball.r;
+      if (dist <= innerB || dist >= outerB) continue;
+      const ang = Math.atan2(dy, dx);
+      let relAng = ang - ring.angle;
+      relAng = ((relAng % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const arc = (Math.PI * 2) / ring.n;
+      let idx = Math.floor(relAng / arc);
+      if (idx < 0) idx = 0;
+      if (idx >= ring.n) idx = ring.n - 1;
+      if (idx === ring.gapIdx) continue;
+      const tile = ring.tiles[idx];
+      if (!tile.active) continue;
+      const insideRing = dist < ring.r;
+      const nx = dx / dist, ny = dy / dist;
+      const vr = ball.vx * nx + ball.vy * ny;
+      if (insideRing && vr <= 0) continue;
+      if (!insideRing && vr >= 0) continue;
+      tile.active = false;
+      tile.respawnAt = now + 1600;
+      for (let p = 0; p < 8; p++){
+        const pa = Math.random() * Math.PI * 2;
+        s.particles.push({
+          x: ball.x, y: ball.y,
+          vx: Math.cos(pa) * (1 + Math.random() * 3.5),
+          vy: Math.sin(pa) * (1 + Math.random() * 3.5),
+          life: 1, color: ring.color,
+        });
+      }
+      ball.vx -= 2 * vr * nx; ball.vy -= 2 * vr * ny;
+      const spAfter = Math.hypot(ball.vx, ball.vy) || 0.001;
+      if (spAfter < TV_MIN_SPEED){ ball.vx *= TV_MIN_SPEED / spAfter; ball.vy *= TV_MIN_SPEED / spAfter; }
+      const tangKick = (Math.random() - 0.5) * 2.8;
+      ball.vx += -ny * tangKick; ball.vy += nx * tangKick;
+      ball.vy -= 0.9;
+      const spF = Math.hypot(ball.vx, ball.vy);
+      if (spF > TV_MAX_SPEED){ ball.vx *= TV_MAX_SPEED / spF; ball.vy *= TV_MAX_SPEED / spF; }
+      if (spF < TV_MIN_SPEED){ ball.vx *= TV_MIN_SPEED / spF; ball.vy *= TV_MIN_SPEED / spF; }
+      const targetR = insideRing ? ring.r - halfW - ball.r - 0.5 : ring.r + halfW + ball.r + 0.5;
+      ball.x = TV_CX + nx * targetR;
+      ball.y = TV_CY + ny * targetR;
+    }
+  }
+}
+
+function updateTV1(now, dt){
+  if (!tv1) initTV1();
+  const s = tv1;
+  for (const ring of s.rings) ring.angle += ring.rotSpeed * dt;
+  if (s.escaped){ if (now - s.escapedAt > 2200) initTV1(); }
+  else {
+    stepTV1Ball(s, now, dt);
+    s.trail.push({ x: s.ball.x, y: s.ball.y });
+    if (s.trail.length > 22) s.trail.shift();
+  }
+  for (let i = s.particles.length - 1; i >= 0; i--){
+    const p = s.particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.94; p.vy *= 0.94;
+    p.life -= 0.032;
+    if (p.life <= 0) s.particles.splice(i, 1);
+  }
+}
+
+function tvArc(g, cx, cy, rO, rI, a0, a1){
+  g.beginPath();
+  g.arc(cx, cy, rO, a0, a1);
+  g.arc(cx, cy, rI, a1, a0, true);
+  g.closePath();
+}
+
+function drawTV1(now){
+  const s = tv1;
+  const g = brainrotCtx;
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, TV_W, TV_H);
+  const bg = g.createRadialGradient(TV_CX, TV_CY, 0, TV_CX, TV_CY, 220);
+  bg.addColorStop(0, 'rgba(80, 0, 150, 0.28)');
+  bg.addColorStop(0.5, 'rgba(40, 0, 90, 0.15)');
+  bg.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = bg;
+  g.fillRect(0, 0, TV_W, TV_H);
+  for (const ring of s.rings){
+    const arc = (Math.PI * 2) / ring.n;
+    const gap = arc * 0.14;
+    const rIn = ring.r - ring.w / 2;
+    const rOut = ring.r + ring.w / 2;
+    for (let i = 0; i < ring.n; i++){
+      if (i === ring.gapIdx) continue;
+      const tile = ring.tiles[i];
+      const a0 = ring.angle + i * arc + gap / 2;
+      const a1 = ring.angle + (i + 1) * arc - gap / 2;
+      if (tile.active){
+        g.shadowColor = ring.color; g.shadowBlur = 14;
+        tvArc(g, TV_CX, TV_CY, rOut, rIn, a0, a1);
+        g.fillStyle = ring.color; g.fill();
+        g.shadowBlur = 0;
+        g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1; g.stroke();
+      } else {
+        const prog = 1 - (tile.respawnAt - now) / 1600;
+        if (prog > 0){
+          g.globalAlpha = prog * 0.5;
+          g.shadowColor = ring.color; g.shadowBlur = 20;
+          tvArc(g, TV_CX, TV_CY, rOut, rIn, a0, a1);
+          g.fillStyle = ring.color; g.fill();
+          g.shadowBlur = 0; g.globalAlpha = 1;
+        }
+      }
+    }
+  }
+  for (let i = 0; i < s.trail.length; i++){
+    const a = i / s.trail.length;
+    g.globalAlpha = a * a * 0.6;
+    g.shadowColor = '#ff3fa4'; g.shadowBlur = 14;
+    g.fillStyle = '#ff3fa4';
+    g.beginPath(); g.arc(s.trail[i].x, s.trail[i].y, 1.8 + a * 6, 0, Math.PI * 2); g.fill();
+  }
+  g.shadowBlur = 0; g.globalAlpha = 1;
+  for (const p of s.particles){
+    g.globalAlpha = p.life;
+    g.shadowColor = p.color; g.shadowBlur = 10;
+    g.fillStyle = p.color;
+    g.fillRect(p.x - 1.2, p.y - 1.2, 2.4, 2.4);
+  }
+  g.shadowBlur = 0; g.globalAlpha = 1;
+  if (!s.escaped){
+    const b = s.ball;
+    g.shadowColor = '#ff3fa4'; g.shadowBlur = 22;
+    g.fillStyle = '#ff3fa4';
+    g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.beginPath(); g.arc(b.x, b.y, b.r * 0.55, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.arc(b.x - b.r * 0.3, b.y - b.r * 0.35, b.r * 0.3, 0, Math.PI * 2); g.fill();
+  }
+  g.font = 'bold 15px Arial, sans-serif';
+  g.textAlign = 'center';
+  g.shadowColor = '#00ffff'; g.shadowBlur = 10;
+  g.fillStyle = '#ffffff';
+  g.fillText('The ball has 40 seconds to escape', TV_CX, 24);
+  g.shadowBlur = 0;
+  const elapsed = ((now - s.startAt) / 1000) % 40;
+  const remain = 40 - elapsed;
+  const mm = Math.floor(remain / 60);
+  const ss = Math.floor(remain % 60).toString().padStart(2, '0');
+  g.font = 'bold 14px Arial, sans-serif';
+  g.shadowColor = '#ff3fa4'; g.shadowBlur = 10;
+  g.fillStyle = '#ffffff';
+  g.fillText(`${mm}:${ss}`, TV_CX, TV_H - 12);
+  g.shadowBlur = 0;
+  if (s.escaped){
+    g.globalAlpha = Math.min(1, (now - s.escapedAt) / 300);
+    g.shadowColor = '#ff3fa4'; g.shadowBlur = 30;
+    g.fillStyle = '#ff3fa4';
+    g.font = 'bold 42px Arial, sans-serif';
+    g.fillText('ESCAPED!', TV_CX, TV_CY);
+    g.shadowBlur = 0; g.globalAlpha = 1;
+  }
+}
+
+// ─── CH 2: MINECRAFT PARKOUR ───
+const FOCAL = 320;
+const BLOCK_SIZE = 1;
+let tv2;
+
+function initTV2(){
+  tv2 = {
+    camX: 0, camY: 2, camZ: 0, smoothX: 0, smoothY: 0,
+    blocks: [], nextZ: 2, pathX: 0, pathY: 0, bobPhase: 0,
+  };
+  for (let i = 0; i < 10; i++){ tv2.blocks.push({ x: 0, y: 0, z: tv2.nextZ }); tv2.nextZ += 2; }
+}
+function genTV2(){
+  const s = tv2;
+  while (s.nextZ < s.camZ + 130){
+    if (Math.random() < 0.55) s.pathX += (Math.random() - 0.5) * 4.5;
+    if (Math.random() < 0.45) s.pathY += (Math.random() - 0.5) * 3;
+    s.pathX = Math.max(-4.5, Math.min(4.5, s.pathX));
+    s.pathY = Math.max(-1, Math.min(4, s.pathY));
+    s.blocks.push({ x: s.pathX, y: s.pathY, z: s.nextZ });
+    s.nextZ += 2;
+  }
+  while (s.blocks.length && s.blocks[0].z < s.camZ - 4) s.blocks.shift();
+}
+function proj2(px, py, pz, s){
+  const dx = px - s.camX, dy = py - s.camY, dz = pz - s.camZ;
+  if (dz < 0.15) return null;
+  const k = FOCAL / dz;
+  return { x: TV_W / 2 + dx * k, y: TV_H / 2 - dy * k, z: dz };
+}
+function mixRGB(a, b, t){
+  return [Math.round(a[0]+(b[0]-a[0])*t), Math.round(a[1]+(b[1]-a[1])*t), Math.round(a[2]+(b[2]-a[2])*t)];
+}
+function rgbStr(c, k){
+  k = k || 1;
+  const r = Math.max(0, Math.min(255, Math.round(c[0] * k)));
+  const g = Math.max(0, Math.min(255, Math.round(c[1] * k)));
+  const b = Math.max(0, Math.min(255, Math.round(c[2] * k)));
+  return `rgb(${r},${g},${b})`;
+}
+const TV_FOG = [200, 225, 245];
+
+function drawMCCube(b, s){
+  const h = BLOCK_SIZE / 2;
+  const x = b.x, y = b.y, z = b.z;
+  const fbl = proj2(x-h, y-h, z-h, s);
+  const fbr = proj2(x+h, y-h, z-h, s);
+  const ftl = proj2(x-h, y+h, z-h, s);
+  const ftr = proj2(x+h, y+h, z-h, s);
+  const bbl = proj2(x-h, y-h, z+h, s);
+  const bbr = proj2(x+h, y-h, z+h, s);
+  const btl = proj2(x-h, y+h, z+h, s);
+  const btr = proj2(x+h, y+h, z+h, s);
+  if (!fbl || !fbr || !ftl || !ftr || !bbl || !bbr || !btl || !btr) return;
+  const dz = z - s.camZ;
+  const fog = Math.min(1, Math.max(0, (dz - 10) / 60));
+  const topCol = mixRGB([86, 154, 44], TV_FOG, fog);
+  const sideCol = mixRGB([124, 90, 60], TV_FOG, fog);
+  const darkCol = mixRGB([90, 64, 42], TV_FOG, fog);
+  const darkerCol = mixRGB([64, 44, 28], TV_FOG, fog);
+  const g = brainrotCtx;
+  if (s.camY > y + h){
+    g.beginPath();
+    g.moveTo(ftl.x, ftl.y); g.lineTo(ftr.x, ftr.y);
+    g.lineTo(btr.x, btr.y); g.lineTo(btl.x, btl.y);
+    g.closePath();
+    g.fillStyle = rgbStr(topCol); g.fill();
+  }
+  if (s.camY < y - h){
+    g.beginPath();
+    g.moveTo(fbl.x, fbl.y); g.lineTo(fbr.x, fbr.y);
+    g.lineTo(bbr.x, bbr.y); g.lineTo(bbl.x, bbl.y);
+    g.closePath();
+    g.fillStyle = rgbStr(darkerCol); g.fill();
+  }
+  if (z - h > s.camZ){
+    g.beginPath();
+    g.moveTo(fbl.x, fbl.y); g.lineTo(fbr.x, fbr.y);
+    g.lineTo(ftr.x, ftr.y); g.lineTo(ftl.x, ftl.y);
+    g.closePath();
+    g.fillStyle = rgbStr(sideCol); g.fill();
+  }
+  if (s.camX < x - h){
+    g.beginPath();
+    g.moveTo(fbl.x, fbl.y); g.lineTo(ftl.x, ftl.y);
+    g.lineTo(btl.x, btl.y); g.lineTo(bbl.x, bbl.y);
+    g.closePath();
+    g.fillStyle = rgbStr(darkCol); g.fill();
+  }
+  if (s.camX > x + h){
+    g.beginPath();
+    g.moveTo(fbr.x, fbr.y); g.lineTo(ftr.x, ftr.y);
+    g.lineTo(btr.x, btr.y); g.lineTo(bbr.x, bbr.y);
+    g.closePath();
+    g.fillStyle = rgbStr(darkCol, 0.9); g.fill();
+  }
+}
+
+function updateTV2(now, dt){
+  if (!tv2) initTV2();
+  const s = tv2;
+  s.camZ += 0.008 * dt;
+  s.bobPhase += dt * 0.012;
+  genTV2();
+  let target = null;
+  for (const b of s.blocks){
+    if (b.z > s.camZ + 0.5 && (!target || b.z < target.z)) target = b;
+  }
+  if (!target) target = { x: 0, y: 0 };
+  s.smoothX += (target.x - s.smoothX) * 0.09;
+  s.smoothY += (target.y - s.smoothY) * 0.09;
+  s.camX = s.smoothX;
+  s.camY = s.smoothY + 2.0 + Math.sin(s.bobPhase) * 0.10;
+}
+
+function drawMCCloud(g, x, y, s){
+  g.beginPath();
+  g.arc(x, y, 16 * s, 0, Math.PI * 2);
+  g.arc(x + 16 * s, y + 4 * s, 20 * s, 0, Math.PI * 2);
+  g.arc(x + 36 * s, y, 14 * s, 0, Math.PI * 2);
+  g.arc(x + 18 * s, y - 10 * s, 14 * s, 0, Math.PI * 2);
+  g.fill();
+}
+
+function drawTV2(now){
+  const s = tv2;
+  const g = brainrotCtx;
+  const sky = g.createLinearGradient(0, 0, 0, TV_H * 0.65);
+  sky.addColorStop(0, '#5fa8e0');
+  sky.addColorStop(0.6, '#a8d4ef');
+  sky.addColorStop(1, '#d8ecf8');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, TV_W, TV_H * 0.65);
+  const ground = g.createLinearGradient(0, TV_H * 0.5, 0, TV_H);
+  ground.addColorStop(0, '#8fb04a');
+  ground.addColorStop(1, '#5f7d2e');
+  g.fillStyle = ground;
+  g.fillRect(0, TV_H * 0.5, TV_W, TV_H * 0.5);
+  g.fillStyle = 'rgba(255, 245, 180, 0.9)';
+  g.beginPath(); g.arc(TV_W - 70, 50, 24, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255, 245, 180, 0.25)';
+  g.beginPath(); g.arc(TV_W - 70, 50, 42, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.75)';
+  drawMCCloud(g, 70 + Math.sin(now * 0.0002) * 25, 55, 1);
+  drawMCCloud(g, 280 + Math.cos(now * 0.00015) * 30, 35, 0.75);
+  drawMCCloud(g, 420 + Math.sin(now * 0.00018) * 20, 75, 0.85);
+  for (let i = s.blocks.length - 1; i >= 0; i--){
+    const b = s.blocks[i];
+    const dz = b.z - s.camZ;
+    if (dz < 0.15 || dz > 130) continue;
+    drawMCCube(b, s);
+  }
+  const fogGrad = g.createLinearGradient(0, TV_H * 0.42, 0, TV_H * 0.62);
+  fogGrad.addColorStop(0, 'rgba(200,225,245,1)');
+  fogGrad.addColorStop(1, 'rgba(200,225,245,0)');
+  g.fillStyle = fogGrad;
+  g.fillRect(0, TV_H * 0.42, TV_W, TV_H * 0.22);
+  g.strokeStyle = 'rgba(255,255,255,0.7)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(TV_W / 2 - 8, TV_H / 2); g.lineTo(TV_W / 2 + 8, TV_H / 2);
+  g.moveTo(TV_W / 2, TV_H / 2 - 8); g.lineTo(TV_W / 2, TV_H / 2 + 8);
+  g.stroke();
+  const hb = 9, sz = 22, gap = 3;
+  const totalW = hb * sz + (hb - 1) * gap;
+  const startX = (TV_W - totalW) / 2;
+  const startY = TV_H - 32;
+  for (let i = 0; i < hb; i++){
+    g.fillStyle = 'rgba(0,0,0,0.4)';
+    g.fillRect(startX + i * (sz + gap), startY, sz, sz);
+    g.strokeStyle = 'rgba(255,255,255,0.5)';
+    g.lineWidth = 2;
+    g.strokeRect(startX + i * (sz + gap), startY, sz, sz);
+  }
+  g.strokeStyle = 'rgba(255,255,255,0.95)';
+  g.lineWidth = 3;
+  g.strokeRect(startX - 3, startY - 3, sz + 6, sz + 6);
+  g.font = '14px Arial';
+  g.textAlign = 'left';
+  g.fillStyle = '#ff3355';
+  g.fillText('❤❤❤❤❤❤❤❤❤❤', startX, startY - 6);
+}
+
+// ─── CH 3: COMBINE ───
+const CELL = 14;
+const COLS = Math.floor(TV_W / CELL);
+const ROWS = Math.floor(TV_H / CELL);
+const HARV_SCALE = 1.15;
+let tv3;
+
+function makeWheatTile(){
+  const c = document.createElement('canvas');
+  c.width = CELL; c.height = CELL;
+  const g = c.getContext('2d');
+  g.fillStyle = '#b89028';
+  g.fillRect(0, 0, CELL, CELL);
+  for (let i = 0; i < 5; i++){
+    g.fillStyle = `rgba(160, 120, 40, ${0.25 + Math.random() * 0.3})`;
+    g.fillRect(Math.random() * CELL, Math.random() * CELL, 3, 3);
+  }
+  for (let i = 0; i < 16; i++){
+    const x = Math.random() * CELL;
+    const y = CELL - Math.random() * 2;
+    const hgt = 8 + Math.random() * 7;
+    const hue = 42 + Math.random() * 18;
+    const light = 58 + Math.random() * 22;
+    g.strokeStyle = `hsl(${hue}, 88%, ${light}%)`;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + (Math.random() - 0.5) * 2, y - hgt * 0.5, x + (Math.random() - 0.5) * 3, y - hgt);
+    g.stroke();
+    g.fillStyle = `hsl(${hue}, 95%, ${light + 10}%)`;
+    g.fillRect(x - 1, y - hgt, 2, 3);
+  }
+  return c;
+}
+function makeStubTile(){
+  const c = document.createElement('canvas');
+  c.width = CELL; c.height = CELL;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c8b878';
+  g.fillRect(0, 0, CELL, CELL);
+  for (let i = 0; i < 7; i++){
+    g.fillStyle = `rgba(150, 120, 60, ${0.3 + Math.random() * 0.3})`;
+    g.fillRect(Math.random() * CELL, Math.random() * CELL, 3, 3);
+  }
+  for (let i = 0; i < 24; i++){
+    g.fillStyle = `hsl(${44 + Math.random() * 16}, 55%, ${38 + Math.random() * 20}%)`;
+    g.fillRect(Math.random() * CELL, Math.random() * CELL, 1, 2);
+  }
+  return c;
+}
+
+function initTV3(){
+  tv3 = {
+    grass: new Float32Array(COLS * ROWS).fill(1),
+    hx: 70, hy: 80, hdir: 1,
+    turning: false, turnProgress: 0,
+    wheatTile: makeWheatTile(), stubTile: makeStubTile(),
+    dust: [], wheelSpin: 0,
+  };
+}
+
+function updateTV3(now, dt){
+  if (!tv3) initTV3();
+  const s = tv3;
+  const speed = 0.065 * dt;
+  const margin = 55;
+  const rowH = 40;
+
+  if (!s.turning){
+    s.hx += speed * s.hdir;
+    s.wheelSpin += speed * 0.25;
+    if (s.hx > TV_W - margin){ s.hx = TV_W - margin; s.turning = true; s.turnProgress = 0; }
+    else if (s.hx < margin){ s.hx = margin; s.turning = true; s.turnProgress = 0; }
+  } else {
+    s.turnProgress += dt * 0.0016;
+    s.wheelSpin += 0.03 * dt;
+    if (s.turnProgress >= 1){
+      s.turnProgress = 0;
+      s.turning = false;
+      s.hdir *= -1;
+      s.hy += rowH;
+      if (s.hy > TV_H + 100) s.hy = -100;
+    }
+  }
+
+  if (!s.turning){
+    const headOffsetX = s.hdir * 62 * HARV_SCALE;
+    const headX = s.hx + headOffsetX;
+    const headY = s.hy;
+    const cutR = 78 * HARV_SCALE;
+    const c0 = Math.max(0, Math.floor((headX - cutR) / CELL));
+    const c1 = Math.min(COLS - 1, Math.floor((headX + cutR) / CELL));
+    const r0 = Math.max(0, Math.floor((headY - cutR) / CELL));
+    const r1 = Math.min(ROWS - 1, Math.floor((headY + cutR) / CELL));
+    for (let r = r0; r <= r1; r++){
+      for (let c = c0; c <= c1; c++){
+        const dx = (c + 0.5) * CELL - headX;
+        const dy = (r + 0.5) * CELL - headY;
+        if (dx * dx + dy * dy < cutR * cutR){
+          const idx = r * COLS + c;
+          if (s.grass[idx] > 0.4 && Math.random() < 0.18){
+            s.dust.push({
+              x: (c + Math.random()) * CELL,
+              y: (r + Math.random()) * CELL,
+              vx: (Math.random() - 0.5) * 0.7 - s.hdir * 0.6,
+              vy: (Math.random() - 0.5) * 0.7,
+              life: 1,
+            });
+          }
+          s.grass[idx] = 0;
+        }
+      }
+    }
+  }
+
+  const regrow = 0.00016 * dt;
+  for (let i = 0; i < s.grass.length; i++){
+    if (s.grass[i] < 1) s.grass[i] = Math.min(1, s.grass[i] + regrow);
+  }
+  for (let i = s.dust.length - 1; i >= 0; i--){
+    const p = s.dust[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.95; p.vy *= 0.95;
+    p.life -= 0.018;
+    if (p.life <= 0) s.dust.splice(i, 1);
+  }
+}
+
+function drawHarvester(g, s){
+  const x = s.hx, y = s.hy;
+  let scaleX = s.hdir;
+  if (s.turning) scaleX = s.hdir * Math.cos(s.turnProgress * Math.PI);
+  g.save();
+  g.translate(x, y);
+  g.scale(scaleX * HARV_SCALE, HARV_SCALE);
+  g.fillStyle = 'rgba(0,0,0,0.4)';
+  g.beginPath(); g.ellipse(0, 14, 85, 55, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e0a020';
+  g.fillRect(36, -78, 26, 156);
+  g.strokeStyle = '#5a4008'; g.lineWidth = 2;
+  g.strokeRect(36, -78, 26, 156);
+  g.strokeStyle = 'rgba(80, 50, 10, 0.55)'; g.lineWidth = 1;
+  for (let i = -74; i <= 74; i += 7){
+    g.beginPath(); g.moveTo(36, i); g.lineTo(62, i); g.stroke();
+  }
+  g.fillStyle = '#b8b8b8';
+  for (let i = -76; i <= 76; i += 6) g.fillRect(62, i, 14, 2.8);
+  g.fillStyle = '#555';
+  g.fillRect(76, -76, 4, 152);
+  g.fillStyle = '#c9941f';
+  g.fillRect(36, -80, 42, 5);
+  g.fillRect(36, 75, 42, 5);
+  g.strokeStyle = '#5a4008';
+  g.strokeRect(36, -80, 42, 5);
+  g.strokeRect(36, 75, 42, 5);
+  g.fillStyle = '#e8b923';
+  g.beginPath();
+  g.moveTo(-48, -32); g.lineTo(36, -32); g.lineTo(36, 32); g.lineTo(-48, 32);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = '#5a4008'; g.lineWidth = 2; g.stroke();
+  g.fillStyle = '#b8881b';
+  g.fillRect(-46, -26, 46, 52);
+  g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1;
+  g.strokeRect(-46, -26, 46, 52);
+  for (let i = -22; i <= 22; i += 9){
+    g.beginPath(); g.moveTo(-46, i); g.lineTo(0, i); g.stroke();
+  }
+  g.fillStyle = '#1e1e1e';
+  g.fillRect(-4, -30, 28, 60);
+  g.fillStyle = '#4b9fd6';
+  g.fillRect(-2, -26, 24, 20);
+  g.fillStyle = '#87c6ea';
+  g.fillRect(-1, -25, 20, 6);
+  g.fillStyle = '#333';
+  g.fillRect(-4, -30, 28, 3);
+  g.fillStyle = '#a8861a';
+  g.fillRect(-38, -42, 12, 14);
+  g.strokeStyle = '#5a4008'; g.strokeRect(-38, -42, 12, 14);
+  g.fillStyle = '#151515';
+  g.beginPath(); g.ellipse(30, -35, 10, 8, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(30, 35, 10, 8, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(-36, -34, 7, 5, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(-36, 34, 7, 5, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(220,220,220,0.5)'; g.lineWidth = 1;
+  const wheels = [
+    { wx: 30, wy: -35, rw: 9 }, { wx: 30, wy: 35, rw: 9 },
+    { wx: -36, wy: -34, rw: 6 }, { wx: -36, wy: 34, rw: 6 },
+  ];
+  for (const w of wheels){
+    for (let i = 0; i < 3; i++){
+      const a = s.wheelSpin + i * Math.PI * 2 / 3;
+      g.beginPath(); g.moveTo(w.wx, w.wy);
+      g.lineTo(w.wx + Math.cos(a) * w.rw, w.wy + Math.sin(a) * w.rw * 0.75);
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+function drawTV3(now){
+  const s = tv3;
+  const g = brainrotCtx;
+  g.fillStyle = '#7a6020';
+  g.fillRect(0, 0, TV_W, TV_H);
+  for (let r = 0; r < ROWS; r++){
+    for (let c = 0; c < COLS; c++){
+      const x = c * CELL;
+      const y = r * CELL;
+      const gv = s.grass[r * COLS + c];
+      g.drawImage(s.stubTile, x, y);
+      if (gv > 0.02){
+        g.globalAlpha = gv;
+        g.drawImage(s.wheatTile, x, y);
+        g.globalAlpha = 1;
+      }
+    }
+  }
+  for (const p of s.dust){
+    g.globalAlpha = p.life * 0.7;
+    g.fillStyle = '#f0d878';
+    g.fillRect(p.x, p.y, 2, 2);
+  }
+  g.globalAlpha = 1;
+  drawHarvester(g, s);
+  const vg = g.createRadialGradient(TV_W / 2, TV_H / 2, 100, TV_W / 2, TV_H / 2, 300);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+  g.fillStyle = vg;
+  g.fillRect(0, 0, TV_W, TV_H);
+  g.font = 'bold 12px Arial';
+  g.textAlign = 'left';
+  g.fillStyle = 'rgba(0,0,0,0.55)';
+  g.fillRect(8, 8, 170, 22);
+  g.fillStyle = '#ffd970';
+  g.fillText('🚜 WHEAT CAM · LIVE', 16, 24);
+}
+
+function drawBrainrot(now, dt){
+  if (brainrotMode === 0){ updateTV1(now, dt); drawTV1(now); }
+  else if (brainrotMode === 1){ updateTV2(now, dt); drawTV2(now); }
+  else { updateTV3(now, dt); drawTV3(now); }
+  brainrotTex.needsUpdate = true;
+}
+
+initTV1(); initTV2(); initTV3();
+
+document.getElementById('brainrotBtn').addEventListener('click', () => {
+  brainrotMode = (brainrotMode + 1) % 3;
+  document.getElementById('brainrotBtn').textContent = `🧠 Брейнрот ${brainrotMode+1}/3 · тап для переключения`;
+  showBanner(`Режим: ${BRAINROT_MODES[brainrotMode]}`, 1200);
+});
+
+// ═══════════════ TABLE ═══════════════
+const TBL_Y = 0.75;
+const TBL_R = 1.0;
+const TBL_FELT_R = 0.78;
+const tbl = new THREE.Group();
+scene.add(tbl);
+
+const rim = new THREE.Mesh(
+  new THREE.CylinderGeometry(TBL_R + 0.22, TBL_R + 0.22, 0.14, 64),
+  new THREE.MeshStandardMaterial({ color: 0x5a3418, roughness: 0.55, metalness: 0.15 })
+);
+rim.position.y = TBL_Y - 0.07;
+rim.castShadow = true;
+rim.receiveShadow = true;
+tbl.add(rim);
+
+const rail = new THREE.Mesh(
+  new THREE.TorusGeometry(TBL_R + 0.14, 0.11, 20, 64),
+  new THREE.MeshStandardMaterial({ color: 0x7a3a1a, roughness: 0.75, metalness: 0.05 })
+);
+rail.rotation.x = Math.PI/2;
+rail.position.y = TBL_Y + 0.04;
+rail.castShadow = true;
+rail.receiveShadow = true;
+tbl.add(rail);
+
+const feltTex = (()=>{
+  const c = document.createElement('canvas'); c.width=c.height=512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1e6a3a'; ctx.fillRect(0,0,512,512);
+  for (let i=0;i<12000;i++){
+    ctx.fillStyle = `rgba(${10+Math.random()*25},${60+Math.random()*50},${30+Math.random()*30},0.35)`;
+    ctx.fillRect(Math.random()*512, Math.random()*512, 1, 1);
+  }
+  ctx.strokeStyle = 'rgba(255,220,150,0.35)';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(256,256,220,0,6.28); ctx.stroke();
+  return new THREE.CanvasTexture(c);
+})();
+const felt = new THREE.Mesh(
+  new THREE.CircleGeometry(TBL_FELT_R, 64),
+  new THREE.MeshStandardMaterial({ map: feltTex, color: 0x2a8a48, roughness: 0.95 })
+);
+felt.rotation.x = -Math.PI/2;
+felt.position.y = TBL_Y + 0.005;
+felt.receiveShadow = true;
+tbl.add(felt);
+
+const cRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.2, 0.25, 48),
+  new THREE.MeshStandardMaterial({ color: 0xc89840, metalness: 0.75, roughness: 0.35 })
+);
+cRing.rotation.x = -Math.PI/2;
+cRing.position.y = TBL_Y + 0.007;
+tbl.add(cRing);
+const cInner = new THREE.Mesh(
+  new THREE.CircleGeometry(0.185, 48),
+  new THREE.MeshStandardMaterial({ color: 0x1a5a30, roughness: 0.95 })
+);
+cInner.rotation.x = -Math.PI/2;
+cInner.position.y = TBL_Y + 0.006;
+tbl.add(cInner);
+
+const legMat = new THREE.MeshStandardMaterial({ color: 0x3a2008, roughness: 0.6, metalness: 0.1 });
+for (let i=0;i<4;i++){
+  const a = (i/4)*Math.PI*2 + Math.PI/4;
+  const leg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.06, TBL_Y - 0.07, 12),
+    legMat
+  );
+  leg.position.set(Math.cos(a)*(TBL_R - 0.15), (TBL_Y - 0.07)/2, Math.sin(a)*(TBL_R - 0.15));
+  leg.castShadow = true;
+  tbl.add(leg);
+}
+
+// ═══════════════ PLAYERS ═══════════════
+const SEATS = [
+  { x: 0,    z: 1.25,  rot: Math.PI,      name: 'Ты' },
+  { x: -1.0, z: -1.05, rot: Math.PI*0.35, name: 'Биба' },
+  { x: 1.0,  z: -1.05, rot: -Math.PI*0.35, name: 'Боба' }
+];
+
+function makeCowboy(shirtColor, skinColor, hatColor){
+  const g = new THREE.Group();
+  const torsoMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.82 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.72 });
+  const vestMat = new THREE.MeshStandardMaterial({ color: 0x3a2216, roughness: 0.7, metalness: 0.08 });
+  const hatMat = new THREE.MeshStandardMaterial({ color: hatColor, roughness: 0.85 });
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.55, 4, 12), torsoMat);
+  torso.position.y = 0.72;
+  torso.castShadow = true;
+  torso.receiveShadow = true;
+  g.add(torso);
+
+  const vest = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.55, 16, 1, true), vestMat);
+  vest.position.y = 0.72;
+  vest.castShadow = true;
+  g.add(vest);
+  const vestFront = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.48, 0.02), vestMat);
+  vestFront.position.set(0, 0.72, 0.26);
+  g.add(vestFront);
+
+  const shoulderGeo = new THREE.SphereGeometry(0.13, 12, 10);
+  const shL = new THREE.Mesh(shoulderGeo, torsoMat);
+  shL.position.set(-0.32, 0.94, 0);
+  shL.castShadow = true;
+  g.add(shL);
+  const shR = new THREE.Mesh(shoulderGeo, torsoMat);
+  shR.position.set(0.32, 0.94, 0);
+  shR.castShadow = true;
+  g.add(shR);
+
+  function makeArm(sx){
+    const shoulder = new THREE.Vector3(sx * 0.32, 0.94, 0.02);
+    const hand = new THREE.Vector3(sx * 0.52, 0.68, 0.30);
+    const mid = shoulder.clone().add(hand).multiplyScalar(0.5);
+    const dirVec = hand.clone().sub(shoulder);
+    const len = dirVec.length();
+    dirVec.normalize();
+    const cylLen = Math.max(0.02, len - 0.14);
+    const armGeo = new THREE.CapsuleGeometry(0.07, cylLen, 4, 10);
+    const arm = new THREE.Mesh(armGeo, torsoMat);
+    arm.position.copy(mid);
+    arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+    arm.castShadow = true;
+    g.add(arm);
+    const handMesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), skinMat);
+    handMesh.position.copy(hand);
+    handMesh.castShadow = true;
+    g.add(handMesh);
+  }
+  makeArm(-1);
+  makeArm(1);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 10), skinMat);
+  neck.position.y = 1.08;
+  g.add(neck);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 16), skinMat);
+  head.position.y = 1.24;
+  head.castShadow = true;
+  g.add(head);
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.11, 0.2), skinMat);
+  jaw.position.set(0, 1.16, 0.02);
+  jaw.castShadow = true;
+  g.add(jaw);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 8), skinMat);
+  nose.rotation.x = Math.PI/2;
+  nose.position.set(0, 1.22, 0.16);
+  g.add(nose);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f0f0f });
+  const eyeGeo = new THREE.SphereGeometry(0.02, 8, 6);
+  const eL = new THREE.Mesh(eyeGeo, eyeMat); eL.position.set(-0.06, 1.27, 0.14); g.add(eL);
+  const eR = new THREE.Mesh(eyeGeo, eyeMat); eR.position.set(0.06, 1.27, 0.14); g.add(eR);
+  const mustMat = new THREE.MeshStandardMaterial({ color: 0x2a1810, roughness: 0.9 });
+  const must = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.03, 0.06), mustMat);
+  must.position.set(0, 1.19, 0.14);
+  g.add(must);
+
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 28), hatMat);
+  brim.position.y = 1.4;
+  brim.castShadow = true;
+  g.add(brim);
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.2, 24), hatMat);
+  crown.position.y = 1.51;
+  crown.castShadow = true;
+  g.add(crown);
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.192, 0.192, 0.035, 24),
+    new THREE.MeshStandardMaterial({ color: 0x1a0808, roughness: 0.7 })
+  );
+  band.position.y = 1.43;
+  g.add(band);
+
+  return g;
+}
+
+const biba = makeCowboy(0x6a2a2a, 0xd8a878, 0x4a2a10);
+biba.position.set(SEATS[1].x, 0.18, SEATS[1].z);
+biba.rotation.y = SEATS[1].rot;
+scene.add(biba);
+
+const boba = makeCowboy(0x2a4a2a, 0xc89868, 0x2a1810);
+boba.position.set(SEATS[2].x, 0.18, SEATS[2].z);
+boba.rotation.y = SEATS[2].rot;
+scene.add(boba);
+
+// ═══════════════ CARD TEXTURES ═══════════════
+function makeCardFace(rank, suit){
+  const c = document.createElement('canvas'); c.width=320; c.height=448;
+  const ctx = c.getContext('2d');
+  const gr = ctx.createLinearGradient(0,0,0,448);
+  gr.addColorStop(0,'#ffffff'); gr.addColorStop(1,'#f0eee6');
+  ctx.fillStyle = gr; ctx.fillRect(0,0,320,448);
+  ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth=3;
+  ctx.strokeRect(10,10,300,428);
+  const isRed = suit === '♥' || suit === '♦';
+  ctx.fillStyle = isRed ? '#c9261a' : '#0f0f0f';
+  ctx.font = 'bold 88px Georgia, serif';
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  ctx.fillText(rank, 22, 20);
+  ctx.font = '76px Georgia, serif';
+  ctx.fillText(suit, 22, 118);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 200px Georgia, serif';
+  ctx.fillText(suit, 160, 224);
+  ctx.save();
+  ctx.translate(320, 448); ctx.rotate(Math.PI);
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillStyle = isRed ? '#c9261a' : '#0f0f0f';
+  ctx.font = 'bold 88px Georgia, serif';
+  ctx.fillText(rank, 22, 20);
+  ctx.font = '76px Georgia, serif';
+  ctx.fillText(suit, 22, 118);
+  ctx.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  return t;
+}
+function makeCardBack(){
+  const c = document.createElement('canvas'); c.width=320; c.height=448;
+  const ctx = c.getContext('2d');
+  const gr = ctx.createLinearGradient(0,0,0,448);
+  gr.addColorStop(0,'#8a1a1a'); gr.addColorStop(1,'#6a1010');
+  ctx.fillStyle = gr; ctx.fillRect(0,0,320,448);
+  ctx.strokeStyle = 'rgba(255,220,140,0.7)'; ctx.lineWidth = 2;
+  for (let i=-320;i<320;i+=22){
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+448,448); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i+448,0); ctx.lineTo(i,448); ctx.stroke();
+  }
+  ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 8;
+  ctx.strokeRect(18,18,284,412);
+  ctx.strokeStyle = 'rgba(255,215,106,0.5)'; ctx.lineWidth = 2;
+  ctx.strokeRect(30,30,260,388);
+  ctx.fillStyle = '#ffd76a';
+  ctx.font = 'bold 90px Georgia, serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('♠', 160, 224);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
+  return t;
+}
+const CARD_BACK_TEX = makeCardBack();
+
+const CARD_W = 0.14, CARD_H = 0.196;
+
+function makeCard3D(rank, suit){
+  const faceTex = makeCardFace(rank, suit);
+  const faceMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.55 });
+  const backMat = new THREE.MeshStandardMaterial({ map: CARD_BACK_TEX, roughness: 0.5 });
+  const g = new THREE.Group();
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H), faceMat);
+  front.rotation.x = -Math.PI/2;
+  front.position.y = 0.001;
+  front.castShadow = true;
+  g.add(front);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H), backMat);
+  back.rotation.x = Math.PI/2;
+  back.position.y = -0.001;
+  g.add(back);
+  g.userData.front = front;
+  g.userData.back = back;
+  g.userData.faceUp = false;
+  back.rotation.x = -Math.PI/2;
+  back.position.y = 0.001;
+  front.rotation.x = Math.PI/2;
+  front.position.y = -0.001;
+  return g;
+}
+function setFaceUp(card, up){
+  if (card.userData.faceUp === up) return;
+  card.userData.faceUp = up;
+  const f = card.userData.front, b = card.userData.back;
+  if (up){
+    f.rotation.x = -Math.PI/2; f.position.y = 0.001;
+    b.rotation.x = Math.PI/2; b.position.y = -0.001;
+  } else {
+    b.rotation.x = -Math.PI/2; b.position.y = 0.001;
+    f.rotation.x = Math.PI/2; f.position.y = -0.001;
+  }
+}
+
+// ═══════════════ HAND ═══════════════
+const HAND = {
+  players: [
+    [{rank:'A',suit:'♠'},{rank:'K',suit:'♠'}],
+    [{rank:'Q',suit:'♥'},{rank:'Q',suit:'♦'}],
+    [{rank:'9',suit:'♣'},{rank:'9',suit:'♥'}]
+  ],
+  board: [
+    {rank:'A',suit:'♥'},{rank:'7',suit:'♦'},{rank:'2',suit:'♣'},{rank:'K',suit:'♦'},{rank:'K',suit:'♥'}
+  ]
+};
+
+const cardMeshes = { players: [[],[],[]], board: [] };
+
+function cardPosPlayer(p, ci){
+  if (p === 0){
+    const off = ci === 0 ? -0.09 : 0.09;
+    return { x: off, z: 0.52, rot: 0 };
+  }
+  const s = SEATS[p];
+  const dx = -s.x, dz = -s.z;
+  const len = Math.hypot(dx, dz);
+  const nx = dx/len, nz = dz/len;
+  const px = -nz, pz = nx;
+  const off = (ci === 0 ? -0.07 : 0.07);
+  return {
+    x: s.x + nx * 0.52 + px * off,
+    z: s.z + nz * 0.52 + pz * off,
+    rot: s.rot + Math.PI
+  };
+}
+function boardPos(i){
+  const sp = 0.155;
+  return { x: -2*sp + i*sp, z: -0.15, rot: 0 };
+}
+
+for (let p=0;p<3;p++){
+  for (let c=0;c<2;c++){
+    const card = makeCard3D(HAND.players[p][c].rank, HAND.players[p][c].suit);
+    const pos = cardPosPlayer(p, c);
+    card.position.set(pos.x, TBL_Y + 0.015, pos.z);
+    card.rotation.y = pos.rot;
+    card.visible = false;
+    scene.add(card);
+    cardMeshes.players[p].push(card);
+  }
+}
+for (let i=0;i<5;i++){
+  const card = makeCard3D(HAND.board[i].rank, HAND.board[i].suit);
+  const pos = boardPos(i);
+  card.position.set(pos.x, TBL_Y + 0.015, pos.z);
+  card.rotation.y = pos.rot;
+  card.visible = false;
+  scene.add(card);
+  cardMeshes.board.push(card);
+}
+
+// ═══════════════ CHIPS ═══════════════
+function makeChip(color){
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.045, 0.012, 24),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05 })
+  );
+  base.castShadow = true;
+  g.add(base);
+  const topRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.032, 0.002, 6, 24),
+    new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 })
+  );
+  topRing.rotation.x = Math.PI/2;
+  topRing.position.y = 0.007;
+  g.add(topRing);
+  return g;
+}
+function makeStack(x, z, count, color){
+  const g = new THREE.Group();
+  for (let i=0;i<count;i++){
+    const c = makeChip(color);
+    c.position.y = 0.006 + i * 0.013;
+    c.rotation.y = Math.random()*0.4;
+    g.add(c);
+  }
+  g.position.set(x, TBL_Y + 0.005, z);
+  return g;
+}
+
+const chipsGroup = new THREE.Group();
+scene.add(chipsGroup);
+let chipsAdded = false;
+function addBlinds(){
+  if (chipsAdded) return;
+  chipsAdded = true;
+  const db = makeStack(0.38, 0.35, 1, 0xd8a840);
+  chipsGroup.add(db);
+  const sb = makeStack(-0.55, -0.5, 1, 0x2a5ac9);
+  chipsGroup.add(sb);
+  const bb = makeStack(0.55, -0.5, 2, 0xc92a2a);
+  chipsGroup.add(bb);
+}
+function resetChips(){
+  chipsAdded = false;
+  while (chipsGroup.children.length > 0) chipsGroup.remove(chipsGroup.children[0]);
+}
+
+// ═══════════════ UI ═══════════════
+const el = id => document.getElementById(id);
+const tutTitle = el('tutTitle');
+const tutText = el('tutText');
+const choicesEl = el('choices');
+const nextBtn = el('nextBtn');
+const backBtn = el('backBtn');
+const stepLabel = el('stepLabel');
+const progressFill = el('progressFill');
+const banner = el('banner');
+const whatsHappeningBtn = el('whatsHappening');
+const whatsHappeningPanel = el('whatsHappeningPanel');
+
+function wrapTerm(k, d){ return `<span class="term" data-t="${k}">${d||TERMS[k].title}</span>`; }
+
+// ─── Авто-обёртка терминов для текстов теста ───
+function autoWrapTerms(text){
+  if (!text) return text;
+  let result = String(text);
+  const entries = Object.entries(TERMS)
+    .filter(([k]) => !result.includes(`data-t="${k}"`))
+    .sort((a,b) => b[1].title.length - a[1].title.length);
+  for (const [key, t] of entries){
+    if (result.includes(t.title)){
+      result = result.split(t.title).join(`<span class="term" data-t="${key}">${t.title}</span>`);
+    }
+  }
+  return result;
+}
+
+function showTerm(key){
+  const t = TERMS[key];
+  if (!t) return;
+  el('termTitle').textContent = t.title;
+  el('termBody').innerHTML = t.body;
+  el('termExample').innerHTML = t.example || '';
+  el('termPopup').classList.add('active');
+}
+window.closeTerm = function(){ el('termPopup').classList.remove('active'); };
+el('termPopup').addEventListener('click', e => { if (e.target === el('termPopup')) closeTerm(); });
+document.addEventListener('click', e => {
+  const t = e.target.closest('.term');
+  if (t) showTerm(t.dataset.t);
+});
+
+function showBanner(text, dur = 1800){
+  banner.textContent = text;
+  banner.classList.add('active');
+  clearTimeout(banner._t);
+  banner._t = setTimeout(() => banner.classList.remove('active'), dur);
+}
+
+function setWhatsHappening(title, text){
+  if (title === null){
+    whatsHappeningBtn.classList.remove('visible');
+    whatsHappeningPanel.classList.remove('visible');
+  } else {
+    el('whTitle').textContent = title;
+    el('whText').innerHTML = text;
+    whatsHappeningBtn.classList.add('visible');
+  }
+}
+whatsHappeningBtn.addEventListener('click', () => {
+  whatsHappeningPanel.classList.toggle('visible');
+});
+
+function dropCards(arr, faceUp, delay = 0){
+  arr.forEach((c, i) => {
+    c.visible = true;
+    setFaceUp(c, faceUp);
+    const targetY = c.position.y;
+    c.position.y = targetY + 0.3;
+    c.scale.set(0.6, 0.6, 0.6);
+    const start = performance.now() + i * delay;
+    const anim = () => {
+      const t = Math.min(1, Math.max(0, (performance.now() - start) / 500));
+      const e = 1 - Math.pow(1 - t, 3);
+      c.position.y = targetY + 0.3 * (1 - e);
+      const s = 0.6 + 0.4 * e;
+      c.scale.set(s, s, s);
+      if (t < 1) requestAnimationFrame(anim);
+    };
+    setTimeout(anim, i * delay);
+  });
+}
+function showBoardUpTo(n){
+  for (let i=0;i<=n;i++){
+    cardMeshes.board[i].visible = true;
+    setFaceUp(cardMeshes.board[i], true);
+  }
+}
+function hideAllCards(){
+  cardMeshes.players.forEach(arr => arr.forEach(c => { c.visible = false; setFaceUp(c, false); }));
+  cardMeshes.board.forEach(c => { c.visible = false; setFaceUp(c, false); });
+}
+function resetHandToStart(){
+  hideAllCards();
+  resetChips();
+}
+
+// ═══════════════ CAMERA DRAG CONTROL ═══════════════
+let camTouchId = null;
+let camTouchStartX = 0, camTouchStartY = 0;
+let camTouchLastX = 0, camTouchLastY = 0;
+
+canvas.addEventListener('touchstart', e => {
+  if (camTouchId !== null) return;
+  const t = e.changedTouches[0];
+  camTouchId = t.identifier;
+  camTouchLastX = t.clientX;
+  camTouchLastY = t.clientY;
+}, {passive:true});
+
+canvas.addEventListener('touchmove', e => {
+  for (const t of e.changedTouches){
+    if (t.identifier === camTouchId){
+      const dx = t.clientX - camTouchLastX;
+      const dy = t.clientY - camTouchLastY;
+      camTouchLastX = t.clientX;
+      camTouchLastY = t.clientY;
+      camAngle -= dx * 0.006;
+      // Убрана инверсия по Y — тянем вниз, камера опускается
+      camElev += dy * 0.005;
+      camAngle = Math.max(CAM_ANGLE_MIN, Math.min(CAM_ANGLE_MAX, camAngle));
+      camElev = Math.max(CAM_ELEV_MIN, Math.min(CAM_ELEV_MAX, camElev));
+      updateCamera();
+      e.preventDefault();
+    }
+  }
+}, {passive:false});
+
+canvas.addEventListener('touchend', e => {
+  for (const t of e.changedTouches){
+    if (t.identifier === camTouchId) camTouchId = null;
+  }
+});
+canvas.addEventListener('touchcancel', e => {
+  for (const t of e.changedTouches){
+    if (t.identifier === camTouchId) camTouchId = null;
+  }
+});
+
+// Mouse drag for desktop
+let camMouseDown = false;
+let camMouseLastX = 0, camMouseLastY = 0;
+canvas.addEventListener('mousedown', e => {
+  camMouseDown = true;
+  camMouseLastX = e.clientX;
+  camMouseLastY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!camMouseDown) return;
+  const dx = e.clientX - camMouseLastX;
+  const dy = e.clientY - camMouseLastY;
+  camMouseLastX = e.clientX;
+  camMouseLastY = e.clientY;
+  camAngle -= dx * 0.006;
+  // Убрана инверсия по Y — тянем вниз, камера опускается
+  camElev += dy * 0.005;
+  camAngle = Math.max(CAM_ANGLE_MIN, Math.min(CAM_ANGLE_MAX, camAngle));
+  camElev = Math.max(CAM_ELEV_MIN, Math.min(CAM_ELEV_MAX, camElev));
+  updateCamera();
+});
+window.addEventListener('mouseup', () => camMouseDown = false);
+
+// ═══════════════ STEPS ═══════════════
+const STEPS = [
+  {
+    title: 'Добро пожаловать',
+    text: `Ты за покерным столом. Напротив двое соперников — <b>Биба</b> (слева) и <b>Боба</b> (справа). Мы вместе сыграем раздачу в ${wrapTerm('холдем', 'техасский холдем')} — и ты всё поймёшь. Подсвеченные слова можно <b>тапать</b> — откроется объяснение. Камерой можно крутить пальцем или мышью — просто свайпни по столу.`,
+    enter: () => { resetHandToStart(); setWhatsHappening(null); }
+  },
+  {
+    title: 'Цель игры',
+    text: `Цель одна: <b>забрать все деньги со стола</b> — это ${wrapTerm('банк')}. Есть два способа:<br><br>1. Собрать <b>сильнейшую комбинацию</b> из 5 карт и выиграть на вскрытии.<br>2. Заставить соперников <b>сбросить карты</b> — тогда банк твой без вскрытия.`,
+    enter: () => {}
+  },
+  {
+    title: 'Колода — 52 карты',
+    text: `4 масти (♠ ♥ ♦ ♣) × 13 достоинств. A — старшая, 2 — младшая. Масть <b>не важна</b>, важно только <em>достоинство</em> и сочетание карт. В холдеме у тебя 2 закрытые карты + 5 общих на столе.`,
+    enter: () => {}
+  },
+  {
+    title: '10 комбинаций — от слабой к сильной',
+    text: `Запомни порядок. Всё остальное — детали.`,
+    enter: () => {},
+    htmlExtra: () => `
+      <div class="rank-list">
+        <div class="rank-item top"><div class="rank-num">1</div><div class="rank-info"><div class="rank-name">Роял-флеш</div><div class="rank-desc">A K Q J 10 одной масти</div></div><div class="rank-cards"><div class="mini-card red">A♥</div><div class="mini-card red">K♥</div><div class="mini-card red">Q♥</div><div class="mini-card red">J♥</div><div class="mini-card red">10♥</div></div></div>
+        <div class="rank-item"><div class="rank-num">2</div><div class="rank-info"><div class="rank-name">Стрит-флеш</div><div class="rank-desc">5 подряд одной масти</div></div><div class="rank-cards"><div class="mini-card">9♠</div><div class="mini-card">8♠</div><div class="mini-card">7♠</div><div class="mini-card">6♠</div><div class="mini-card">5♠</div></div></div>
+        <div class="rank-item"><div class="rank-num">3</div><div class="rank-info"><div class="rank-name">Каре</div><div class="rank-desc">4 карты одного достоинства</div></div><div class="rank-cards"><div class="mini-card">7♠</div><div class="mini-card red">7♥</div><div class="mini-card red">7♦</div><div class="mini-card">7♣</div></div></div>
+        <div class="rank-item"><div class="rank-num">4</div><div class="rank-info"><div class="rank-name">Фулл-хаус</div><div class="rank-desc">3 + 2 одного достоинства</div></div><div class="rank-cards"><div class="mini-card">K♠</div><div class="mini-card red">K♥</div><div class="mini-card red">K♦</div><div class="mini-card">5♠</div><div class="mini-card red">5♥</div></div></div>
+        <div class="rank-item"><div class="rank-num">5</div><div class="rank-info"><div class="rank-name">Флеш</div><div class="rank-desc">5 карт одной масти</div></div><div class="rank-cards"><div class="mini-card red">A♦</div><div class="mini-card red">10♦</div><div class="mini-card red">7♦</div><div class="mini-card red">4♦</div><div class="mini-card red">2♦</div></div></div>
+        <div class="rank-item"><div class="rank-num">6</div><div class="rank-info"><div class="rank-name">Стрит</div><div class="rank-desc">5 подряд разных мастей</div></div><div class="rank-cards"><div class="mini-card">9♠</div><div class="mini-card red">8♥</div><div class="mini-card red">7♦</div><div class="mini-card">6♣</div><div class="mini-card">5♠</div></div></div>
+        <div class="rank-item"><div class="rank-num">7</div><div class="rank-info"><div class="rank-name">Сет (тройка)</div><div class="rank-desc">3 карты одного достоинства</div></div><div class="rank-cards"><div class="mini-card">Q♠</div><div class="mini-card red">Q♥</div><div class="mini-card">Q♣</div></div></div>
+        <div class="rank-item"><div class="rank-num">8</div><div class="rank-info"><div class="rank-name">Две пары</div><div class="rank-desc">2 + 2 одного достоинства</div></div><div class="rank-cards"><div class="mini-card">J♠</div><div class="mini-card red">J♥</div><div class="mini-card">8♠</div><div class="mini-card red">8♥</div></div></div>
+        <div class="rank-item"><div class="rank-num">9</div><div class="rank-info"><div class="rank-name">Одна пара</div><div class="rank-desc">2 карты одного достоинства</div></div><div class="rank-cards"><div class="mini-card red">10♥</div><div class="mini-card">10♠</div></div></div>
+        <div class="rank-item"><div class="rank-num">10</div><div class="rank-info"><div class="rank-name">Старшая карта</div><div class="rank-desc">Ничего не собрал — сравниваем по старшей</div></div><div class="rank-cards"><div class="mini-card">A♠</div><div class="mini-card red">K♥</div><div class="mini-card red">9♦</div></div></div>
+      </div>
+    `
+  },
+  {
+    title: 'Как идёт раздача — 4 улицы',
+    text: `<b>1.</b> ${wrapTerm('префлоп', 'Префлоп')}: тебе и соперникам раздают по 2 закрытые карты. Первый раунд ставок.<br><b>2.</b> ${wrapTerm('флоп', 'Флоп')}: на стол кладут 3 общие карты. Второй раунд.<br><b>3.</b> ${wrapTerm('тёрн', 'Тёрн')}: ещё 1 общая карта. Третий раунд.<br><b>4.</b> ${wrapTerm('ривер', 'Ривер')}: последняя 5-я карта. Финальный раунд, потом ${wrapTerm('шоудаун')}.`,
+    enter: () => {
+      resetHandToStart();
+      dropCards(cardMeshes.players[0], true, 120);
+      dropCards(cardMeshes.players[1], false, 120);
+      dropCards(cardMeshes.players[2], false, 120);
+      setTimeout(() => {
+        dropCards(cardMeshes.board.slice(0,3), true, 100);
+        showBanner('Флоп');
+      }, 900);
+      setTimeout(() => {
+        dropCards(cardMeshes.board.slice(3,4), true, 100);
+        showBanner('Тёрн');
+      }, 1700);
+      setTimeout(() => {
+        dropCards(cardMeshes.board.slice(4,5), true, 100);
+        showBanner('Ривер');
+      }, 2400);
+    }
+  },
+  {
+    title: '5 действий на каждой улице',
+    text: `В свой ход ты выбираешь одно действие. Ниже — все пять с простыми объяснениями.`,
+    enter: () => { resetHandToStart(); },
+    htmlExtra: () => `
+      <div class="actions">
+        <div class="action"><div class="action-name">❌ Фолд</div><div class="action-desc">Сбросить карты. Выходишь из раздачи. Слабая рука — сразу фолд.</div></div>
+        <div class="action"><div class="action-name">✅ Чек</div><div class="action-desc">Пропустить ход без ставки. Только если до тебя никто не поставил.</div></div>
+        <div class="action"><div class="action-name">💰 Колл</div><div class="action-desc">Уравнять чужую ставку. «Я плачу столько же и остаюсь».</div></div>
+        <div class="action"><div class="action-name">⬆️ Рейз</div><div class="action-desc">Повысить ставку. Сигнал: «у меня сильная рука».</div></div>
+        <div class="action" style="grid-column:1/-1"><div class="action-name">🔥 Олл-ин</div><div class="action-desc">Поставить все фишки сразу. Последнее действие.</div></div>
+      </div>
+    `
+  },
+  {
+    title: 'Про деньги — блайнды и банк',
+    text: `Перед раздачей двое игроков <b>обязаны</b> поставить в ${wrapTerm('банк')} — это ${wrapTerm('блайнд', 'блайнды')}. Биба (слева) ставит 1 фишку — <b>малый блайнд</b>. Боба (справа) ставит 2 — <b>большой блайнд</b>. Дальше все решают: продолжить или сбросить. Проигравшие теряют свои ставки. Победитель забирает весь банк.`,
+    enter: () => { resetHandToStart(); addBlinds(); showBanner('Блайнды поставлены'); }
+  },
+  {
+    title: '5 правил новичка',
+    text: `Запомни это — и не будешь терять деньги впустую.`,
+    enter: () => { resetHandToStart(); },
+    htmlExtra: () => `
+      <div class="tip"><div class="tip-num">1</div><div class="tip-text">Играй <b>25-30% стартовых рук</b>: пары от 55, AK, AQ, AJ, AT, KQ, KJ, QJ, JT, любые две одномастные от 9 и выше. Этого достаточно, чтобы не сидеть без дела, но и не сливать деньги.</div></div>
+      <div class="tip"><div class="tip-num">2</div><div class="tip-text"><b>${wrapTerm('позиция', 'Позиция')} — твой главный рычаг.</b> Кнопка (последний) видит действия всех до себя и играет шире. Первый после блайндов — вслепую, только премиум. Чем позже сидишь — тем больше рук играешь и тем чаще выигрываешь.</div></div>
+      <div class="tip"><div class="tip-num">3</div><div class="tip-text">С сильной рукой — <b>агрессия</b>. Рейз забирает банк без вскрытия. Пассивный колл теряет деньги на дистанции.</div></div>
+      <div class="tip"><div class="tip-num">4</div><div class="tip-text">Не блефуй против <b>новичков</b>. Они коллируют со всем. Блеф работает только против думающих соперников.</div></div>
+      <div class="tip"><div class="tip-num">5</div><div class="tip-text">Каждый раз спрашивай: <b>«что я тут делаю?»</b> Ставлю ради чего? Коллирую с чем? Осознанность важнее теории.</div></div>
+    `
+  },
+  {
+    title: 'Играем раздачу',
+    text: `Теперь — <b>полноценная раздача</b>. Ты будешь принимать решения по ходу игры, а я буду подсказывать, как правильно. Всего 4 улицы. Кнопка <b>«Что происходит»</b> сверху справа покажет, где ты сейчас и что в банке. Поехали.`,
+    nextLabel: 'Раздать карты',
+    enter: () => {
+      resetHandToStart();
+      currentStreet = 0;
+    }
+  }
+];
+
+// ═══════════════ RAILROAD HAND ═══════════════
+let currentStreet = 0;
+
+const STREET_INFO = [
+  { name: 'Префлоп', board: -1, pot: '3 фишки (2 у Бобы + 1 у Бибы)' },
+  { name: 'Флоп', board: 2, pot: '~9 фишек' },
+  { name: 'Тёрн', board: 3, pot: '~21 фишка' },
+  { name: 'Ривер', board: 4, pot: '~45 фишек' },
+  { name: 'Шоудаун', board: 4, pot: '~65 фишек' }
+];
+
+function updateWhatsHappening(){
+  const s = STREET_INFO[currentStreet];
+  setWhatsHappening(
+    `Улица: ${s.name}`,
+    `Борд: ${s.board < 0 ? '—' : s.board === 2 ? 'A♥ 7♦ 2♣' : s.board === 3 ? 'A♥ 7♦ 2♣ K♦' : 'A♥ 7♦ 2♣ K♦ K♥'}<br>Банк: ${s.pot}<br>Твоя рука: <b>A♠ K♠</b>`
+  );
+}
+
+const RAILROAD_STEPS = [
+  {
+    title: 'Префлоп — раздача',
+    text: `Всем раздали по 2 карты. Твоя рука: <b>A♠ K♠</b>. У тебя лучшая стартовая рука за столом. Ход за тобой — что делать?`,
+    enter: () => {
+      resetHandToStart();
+      addBlinds();
+      dropCards(cardMeshes.players[0], true, 120);
+      dropCards(cardMeshes.players[1], false, 120);
+      dropCards(cardMeshes.players[2], false, 120);
+      currentStreet = 0;
+      updateWhatsHappening();
+      showBanner('Карты раздали');
+    },
+    choices: [
+      { label: '❌ Фолд', correct: false, feedback: 'Фолд с A♠ K♠ — грубая ошибка. Это премиум-рука. С ней ты хочешь расти банк, а не выходить.' },
+      { label: '✅ Колл (2)', correct: false, feedback: 'Колл — не ошибка, но ты не используешь силу руки. Со сильной рукой лучше рейзить: растишь банк и забираешь инициативу.' },
+      { label: '⬆️ Рейз (до 6)', correct: true, feedback: 'Правильно! A♠ K♠ — премиум. Рейз заставит слабые руки платить, а мусор — сбрасывать. Ты забираешь инициативу и растишь банк.' }
+    ]
+  },
+  {
+    title: 'Флоп — 3 общие карты',
+    text: `На стол выложили три карты: <b>A♥ 7♦ 2♣</b>. Ты попал в ${wrapTerm('топ-пара', 'топ-пару')} (тузы) с топ-${wrapTerm('кикер', 'кикером')} (король). Очень сильная рука. В банке уже 9 фишек. Соперники чекают — ход за тобой.`,
+    enter: () => {
+      showBoardUpTo(2);
+      currentStreet = 1;
+      updateWhatsHappening();
+      showBanner('Флоп: A♥ 7♦ 2♣');
+    },
+    choices: [
+      { label: '🚫 Чек', correct: false, feedback: 'Чек с топ-парой = теряешь деньги. Ты не растишь банк и теряешь инициативу. С сильной рукой надо ставить.' },
+      { label: '💰 Бет 6 (2/3 банка)', correct: true, feedback: 'Идеально! Бет 2/3 банка — стандартный сайзинг. Враг слабее заплатит, а сильнее — рейзнет и ты узнаешь. У тебя топ-пара, играешь на value.' }
+    ]
+  },
+  {
+    title: 'Тёрн — 4-я карта',
+    text: `Пришёл <b>K♦</b>. Теперь у тебя <b>две пары</b>: тузы и короли. Борд «сухой» — на нём нет возможных стритов и флешей. Боба коллирует твой бет. В банке уже ~21 фишка. Ход за тобой.`,
+    enter: () => {
+      showBoardUpTo(3);
+      currentStreet = 2;
+      updateWhatsHappening();
+      showBanner('Тёрн: K♦');
+    },
+    choices: [
+      { label: '🚫 Чек', correct: false, feedback: 'Чеком ты оставляешь деньги на столе. У тебя две пары — строй банк, пока враг не понял, что проигрывает.' },
+      { label: '💰 Бет 12 (2/3 банка)', correct: true, feedback: 'Правильно! Рука усилилась, ставь крупнее. Если враг коллирует — отлично. Если рейзит — у него тоже что-то серьёзное, тогда подумаешь.' }
+    ]
+  },
+  {
+    title: 'Ривер — последняя карта',
+    text: `Пришёл <b>K♥</b>. Ты собрал ${wrapTerm('фулл-хаус')} — три короля + два туза! Почти непобедимая рука. Боба заколлировал тёрн, в банке ~45 фишек. Ход за тобой.`,
+    enter: () => {
+      showBoardUpTo(4);
+      currentStreet = 3;
+      updateWhatsHappening();
+      showBanner('Ривер: K♥ — фулл-хаус!', 2400);
+    },
+    choices: [
+      { label: '🚫 Чек', correct: false, feedback: 'Чеком ты оставляешь деньги на столе. С фулл-хаусом надо ставить — враг может оплатить с двумя парами или парой королей.' },
+      { label: '🔥 Большая ставка (35)', correct: true, feedback: 'Правильно! Ты почти наверняка выигрываешь. Ставь максимум — Боба уже дважды коллировал, значит у него есть рука. Забирай как можно больше.' }
+    ]
+  },
+  {
+    title: 'Шоудаун — вскрытие',
+    text: `Все оставшиеся показывают карты. <b>Боба</b> открывает ${wrapTerm('карманная-пара', 'карманную пару')} <b>Q♥ Q♦</b>. Но на борде туз и короли — его пара дам проигрывает твоим двум парам (тузы + короли + твоя K)... да и вообще у тебя фулл-хаус. <b>Биба</b> показал <b>9♣ 9♥</b> — тоже проиграл. Ты забираешь банк <b>~80 фишек</b>!`,
+    enter: () => {
+      setFaceUp(cardMeshes.players[1][0], true);
+      setFaceUp(cardMeshes.players[1][1], true);
+      setFaceUp(cardMeshes.players[2][0], true);
+      setFaceUp(cardMeshes.players[2][1], true);
+      currentStreet = 4;
+      updateWhatsHappening();
+      showBanner('🏆 Ты выиграл банк!', 3000);
+    },
+    nextLabel: 'К финальному тесту'
+  }
+];
+
+STEPS.splice(9, 0, ...RAILROAD_STEPS);
+
+STEPS.push({
+  title: 'Проверим?',
+  text: `Ты прошёл раздачу. Теперь — <b>не «правила»</b>, а <b>реальные игровые ситуации</b> с картами. Отвечай как будто играешь. В конце разбор каждой ошибки.`,
+  isFinal: true,
+  nextLabel: 'Начать тест',
+  enter: () => { setWhatsHappening(null); resetHandToStart(); }
+});
+
+let currentStep = 0;
+let answered = false;
+
+function setProgress(){
+  const total = STEPS.length;
+  stepLabel.textContent = `${currentStep+1} / ${total}`;
+  progressFill.style.width = ((currentStep+1)/total*100) + '%';
+}
+
+function renderStep(){
+  const step = STEPS[currentStep];
+  tutTitle.textContent = step.title;
+  let html = step.text;
+  if (step.htmlExtra) html += step.htmlExtra();
+  tutText.innerHTML = html;
+
+  nextBtn.textContent = step.nextLabel || (currentStep === STEPS.length - 1 ? 'Завершить' : 'Далее →');
+  backBtn.disabled = currentStep === 0;
+  backBtn.style.opacity = currentStep === 0 ? '0.35' : '1';
+
+  choicesEl.innerHTML = '';
+  choicesEl.classList.remove('active');
+  answered = false;
+
+  if (step.enter) step.enter();
+
+  if (step.choices){
+    choicesEl.classList.add('active');
+    step.choices.forEach((choice, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice';
+      btn.textContent = choice.label;
+      btn.addEventListener('click', () => handleChoice(i));
+      choicesEl.appendChild(btn);
+    });
+    nextBtn.style.visibility = 'hidden';
+  } else {
+    nextBtn.style.visibility = 'visible';
+  }
+
+  setProgress();
+}
+
+function handleChoice(idx){
+  if (answered) return;
+  const step = STEPS[currentStep];
+  const choice = step.choices[idx];
+  const btns = choicesEl.querySelectorAll('.choice');
+  btns.forEach(b => b.disabled = true);
+
+  if (choice.correct){
+    btns[idx].classList.add('correct');
+  } else {
+    btns[idx].classList.add('wrong');
+    const ci = step.choices.findIndex(c => c.correct);
+    if (ci >= 0) btns[ci].classList.add('correct');
+  }
+  answered = true;
+
+  const fb = document.createElement('div');
+  fb.className = 'feedback-block';
+  fb.innerHTML = (choice.correct ? '✅ ' : '❌ ') + choice.feedback;
+  choicesEl.appendChild(fb);
+
+  setTimeout(() => { nextBtn.style.visibility = 'visible'; }, 400);
+}
+
+nextBtn.addEventListener('click', () => {
+  if (STEPS[currentStep].isFinal){
+    startQuiz();
+    return;
+  }
+  if (currentStep < STEPS.length - 1){
+    if (STEPS[currentStep].leave) STEPS[currentStep].leave();
+    currentStep++;
+    renderStep();
+  }
+});
+backBtn.addEventListener('click', () => {
+  if (currentStep > 0){
+    if (STEPS[currentStep].leave) STEPS[currentStep].leave();
+    currentStep--;
+    renderStep();
+  }
+});
+
+// ═══════════════ QUIZ ═══════════════
+const QUIZ = [
+  {
+    scenario: 'Ты на кнопке (последняя позиция), до тебя все сбросили.',
+    cards: [{rank:'8', suit:'♥'}, {rank:'3', suit:'♦'}],
+    question: 'Что делать?',
+    options: [
+      { text: 'Рейзить — я на кнопке, позиция сильная', correct: false, feedback: 'Позиция важна, но не настолько. <b>8♥ 3♦</b> — мусор. Даже с позиции играть её невыгодно.' },
+      { text: 'Коллировать — дёшево', correct: false, feedback: 'Колл с мусором = теряешь деньги. Правило: слабая рука — фолд независимо от цены.' },
+      { text: 'Фолд — рука слабая', correct: true, feedback: 'Правильно! <b>8♥ 3♦</b> — одна из худших стартовых рук. Всегда фолд.' },
+      { text: 'Олл-ин — неожиданность', correct: false, feedback: 'Олл-ин с 8-3 — отчаянный блеф. Один раз сработает, на дистанции — катастрофа.' }
+    ]
+  },
+  {
+    scenario: 'Твоя рука и флоп.',
+    cards: [{rank:'A', suit:'♠'}, {rank:'K', suit:'♠'}],
+    board: [{rank:'A', suit:'♥'}, {rank:'7', suit:'♦'}, {rank:'2', suit:'♣'}],
+    question: 'Топ-пара с топ-кикером. Враг ставит 2/3 банка. Что делать?',
+    options: [
+      { text: 'Фолд — вдруг сет', correct: false, feedback: 'Фолд с топ-парой и топ-кикером — слишком пассивно. Проигрываешь только сетам и двум парам, а их мало.' },
+      { text: 'Колл — осторожно', correct: false, feedback: 'Колл нормален, но упускаешь прибыль. С сильной рукой лучше рейзить.' },
+      { text: 'Рейз — рука сильная', correct: true, feedback: 'Правильно! <b>Топ-пара с топ-кикером</b> — премиум. Рейз выгоден: враг слабее заплатит, а сет встретишь редко.' },
+      { text: 'Олл-ин', correct: false, feedback: 'Олл-ин убивает действие. Не дашь врагу ошибиться.' }
+    ]
+  },
+  {
+    scenario: 'У тебя карманная пара, на флопе пришёл твой сет.',
+    cards: [{rank:'Q', suit:'♥'}, {rank:'Q', suit:'♦'}],
+    board: [{rank:'Q', suit:'♠'}, {rank:'7', suit:'♣'}, {rank:'2', suit:'♥'}],
+    question: 'Сет дам. Враг чекает. Что делать?',
+    options: [
+      { text: 'Чек — пусть не пугается', correct: false, feedback: 'Чек на сете = теряешь улицу для ставки.' },
+      { text: 'Ставку — строить банк', correct: true, feedback: 'Правильно! <b>Сет</b> — одна из лучших рук. Ставь, строй банк.' },
+      { text: 'Медленно, чек-колл', correct: false, feedback: 'Медленная игра теряет деньги на сухом борде.' },
+      { text: 'Олл-ин сразу', correct: false, feedback: 'Олл-ин — враг сбросит. Ставки по улицам дают больше прибыли.' }
+    ]
+  },
+  {
+    scenario: 'Топ-пара, но на ривере враг ставит размером в банк. На борде возможен флеш.',
+    cards: [{rank:'A', suit:'♠'}, {rank:'Q', suit:'♣'}],
+    board: [{rank:'A', suit:'♥'}, {rank:'9', suit:'♥'}, {rank:'5', suit:'♥'}, {rank:'3', suit:'♣'}, {rank:'K', suit:'♥'}],
+    question: 'Топ-пара, но на борде 4 червы. Враг ставит банк. Что делать?',
+    options: [
+      { text: 'Колл — топ-пара же', correct: false, feedback: 'Топ-пара с 4 картами одной масти = слабая рука. Любой с червой тебя бьёт.' },
+      { text: 'Фолд — риск велик', correct: true, feedback: 'Правильно! Топ-пара не стоит целого банка на флеш-борде. Если враг блефует — что ж, отдадим. В долгосроке фолд прибыльнее.' },
+      { text: 'Рейз — покажу силу', correct: false, feedback: 'Рейз без флеша — катастрофа. У врага скорее всего флеш.' },
+      { text: 'Олл-ин — блеф', correct: false, feedback: 'Блефовать против крупной ставки на флеш-борде — выбрасывать деньги.' }
+    ]
+  },
+  {
+    scenario: 'Ты на большом блайнде, у тебя связанная одномастная рука. Игрок на кнопке делает крупный рейз.',
+    cards: [{rank:'J', suit:'♠'}, {rank:'10', suit:'♠'}],
+    question: 'Перед тобой рейз от кнопки. Что делать?',
+    options: [
+      { text: 'Фолд — слабо', correct: false, feedback: '<b>J♠ 10♠</b> — одномастная связанная рука с хорошим потенциалом на стрит и флеш.' },
+      { text: 'Колл — рука играбельна', correct: true, feedback: 'Правильно! <b>Одномастные коннекторы</b> отлично флопят: стрит, флеш, две пары.' },
+      { text: 'Ре-рейз', correct: false, feedback: 'Ре-рейз с J-10 против рейза с кнопки рискован.' },
+      { text: 'Олл-ин', correct: false, feedback: 'Олл-ин с J-10 — слишком агрессивно.' }
+    ]
+  },
+  {
+    scenario: 'Стрит на ривере, но на борде возможен флеш. Враг делает маленькую ставку (1/4 банка).',
+    cards: [{rank:'K', suit:'♣'}, {rank:'Q', suit:'♦'}],
+    board: [{rank:'J', suit:'♥'}, {rank:'10', suit:'♥'}, {rank:'9', suit:'♥'}, {rank:'2', suit:'♣'}, {rank:'4', suit:'♠'}],
+    question: 'У тебя стрит. На борде 3 червы. Враг ставит дёшево. Что делать?',
+    options: [
+      { text: 'Фолд — вдруг флеш', correct: false, feedback: 'Фолд глуп. Ты платишь 1/4 банка за информацию.' },
+      { text: 'Колл — шансы банка хороши', correct: true, feedback: 'Правильно! <b>Шансы банка</b>: платишь 1, чтобы выиграть 5. Даже если враг попал в флеш в 30% случаев, колл выгоден.' },
+      { text: 'Рейз — стрит же!', correct: false, feedback: 'Рейз не обязательно ошибка, но враг мог собрать флеш.' },
+      { text: 'Олл-ин', correct: false, feedback: 'Олл-ин опасен: если у врага флеш — проиграешь всё.' }
+    ]
+  }
+];
+
+let quizIdx = 0, quizScore = 0, quizAnswered = false;
+
+function startQuiz(){
+  quizIdx = 0; quizScore = 0;
+  el('quiz').classList.add('active');
+  renderQuiz();
+}
+
+function renderCardHTML(card){
+  const red = (card.suit === '♥' || card.suit === '♦');
+  return `<div class="qCard ${red ? 'red' : ''}">
+    <div>${card.rank}${card.suit}</div>
+    <div class="bc-bottom">${card.rank}${card.suit}</div>
+  </div>`;
+}
+
+function renderQuiz(){
+  const inner = el('quizInner');
+  if (quizIdx >= QUIZ.length){
+    const pct = Math.round(quizScore / QUIZ.length * 100);
+    let verdict, emoji;
+    if (pct >= 85){ verdict = 'Отлично! Ты готов играть осознанно.'; emoji = '🏆'; }
+    else if (pct >= 60){ verdict = 'Хороший старт. Ещё практики — и будешь уверенно играть.'; emoji = '💪'; }
+    else if (pct >= 35){ verdict = 'База есть, но многое интуитивно.'; emoji = '📖'; }
+    else { verdict = 'Не страшно. Вернись к слайдам — там всё объяснено.'; emoji = '🌱'; }
+    inner.innerHTML = `
+      <div class="quiz-result">
+        <div style="font-size:52px;margin-bottom:10px">${emoji}</div>
+        <div class="score">${quizScore} / ${QUIZ.length}</div>
+        <div class="score-label">ПРАВИЛЬНЫХ ОТВЕТОВ</div>
+        <div class="verdict">${verdict}</div>
+        <button class="quiz-restart" onclick="restartQuiz()">ПРОЙТИ ЗАНОВО</button>
+      </div>`;
+    return;
+  }
+  const q = QUIZ[quizIdx];
+  quizAnswered = false;
+  let html = `
+    <div class="quiz-header">
+      <h2>Финальный тест</h2>
+      <div class="prog">${quizIdx+1} / ${QUIZ.length}</div>
+    </div>
+    <div class="quiz-scenario">
+      <div class="quiz-scenario-label">Ситуация</div>
+      <div style="font-size:12.5px;color:#c8d0c8;line-height:1.5">${autoWrapTerms(q.scenario)}</div>
+      <div class="quiz-cards">${q.cards.map(c => renderCardHTML(c)).join('')}</div>
+      ${q.board ? `
+        <div style="font-size:10px;color:#8a9a8a;text-align:center;letter-spacing:2px;margin:6px 0 4px">ОБЩИЕ КАРТЫ</div>
+        <div class="quiz-cards">${q.board.map(c => renderCardHTML(c)).join('')}</div>
+      ` : ''}
+      <div class="quiz-question">${autoWrapTerms(q.question)}</div>
+    </div>
+    <div class="quiz-options">`;
+  q.options.forEach((opt, i) => {
+    html += `<button class="qOpt" data-i="${i}">${autoWrapTerms(opt.text)}</button>`;
+  });
+  html += `</div><div class="quiz-feedback" id="quizFeedback"></div>`;
+  inner.innerHTML = html;
+  inner.querySelectorAll('.qOpt').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('.term')) return;
+      handleQuizAnswer(parseInt(btn.dataset.i));
+    });
+  });
+}
+
+function handleQuizAnswer(i){
+  if (quizAnswered) return;
+  quizAnswered = true;
+  const q = QUIZ[quizIdx];
+  const opt = q.options[i];
+  const btns = el('quizInner').querySelectorAll('.qOpt');
+  btns.forEach(b => b.disabled = true);
+  if (opt.correct){
+    btns[i].classList.add('correct');
+    quizScore++;
+  } else {
+    btns[i].classList.add('wrong');
+    const ci = q.options.findIndex(o => o.correct);
+    if (ci >= 0) btns[ci].classList.add('correct');
+  }
+  const fb = el('quizFeedback');
+  fb.innerHTML = (opt.correct ? '✅ ' : '❌ ') + autoWrapTerms(opt.feedback);
+  const nb = document.createElement('button');
+  nb.className = 'quiz-restart';
+  nb.style.width = '100%';
+  nb.style.marginTop = '12px';
+  nb.textContent = (quizIdx === QUIZ.length - 1) ? 'ПОКАЗАТЬ РЕЗУЛЬТАТ' : 'СЛЕДУЮЩИЙ ВОПРОС →';
+  nb.onclick = () => { quizIdx++; renderQuiz(); };
+  fb.appendChild(nb);
+}
+
+window.restartQuiz = function(){ startQuiz(); };
+
+renderStep();
+
+// ═══════════════ MAIN LOOP ═══════════════
+let t = 0;
+let lastFrameTime = performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(50, now - lastFrameTime);
+  lastFrameTime = now;
+  t += 0.016;
+
+  biba.position.y = 0.18 + Math.sin(t*1.1) * 0.007;
+  boba.position.y = 0.18 + Math.sin(t*1.3 + 1) * 0.007;
+  lampLight.intensity = 9 + Math.sin(t*3.1)*0.15 + Math.sin(t*7.7)*0.08;
+
+  drawBrainrot(now, dt);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ТАРАЩИЛКА</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="menuBg"></canvas>
+<canvas id="game"></canvas>
+
+<!-- HUD: все элементы абсолютные, позиции через CSS calc от --u/--uy -->
+<div class="hud" id="hud" style="display:none">
+  <div class="hud-el hud-wave">
+    <span class="lbl">WAVE</span>
+    <span class="val" id="hud-wave">1</span>
+  </div>
+  <div class="hud-el hud-lvl">
+    <span class="lbl">LVL</span>
+    <span class="val" id="hud-lvl">1</span>
+  </div>
+  <div class="hud-el hud-pickups" id="hudPickups">
+    <div class="hud-pickup" data-pk="haste" style="display:none">
+      <div class="hud-pickup-bar"><div class="hud-pickup-fill" style="background:#7eff90"></div></div>
+      <span class="hud-pickup-icon" style="color:#7eff90">
+        <svg viewBox="-12 -12 24 24"><path d="M 2 -10 L -5 1 L 0.5 1 L -2 10 L 5 -1 L -0.5 -1 Z" fill="currentColor"/></svg>
+      </span>
+    </div>
+    <div class="hud-pickup" data-pk="shield" style="display:none">
+      <div class="hud-pickup-bar"><div class="hud-pickup-fill" style="background:#4da0ff"></div></div>
+      <span class="hud-pickup-icon" style="color:#4da0ff">
+        <svg viewBox="-12 -12 24 24"><path d="M 0 -10 L 7.5 -5 L 7.5 1 Q 6 7 0 10 Q -6 7 -7.5 1 L -7.5 -5 Z" fill="currentColor"/></svg>
+      </span>
+    </div>
+    <div class="hud-pickup" data-pk="rage" style="display:none">
+      <div class="hud-pickup-bar"><div class="hud-pickup-fill" style="background:#ff3060"></div></div>
+      <span class="hud-pickup-icon" style="color:#ff3060">
+        <svg viewBox="-12 -12 24 24"><path d="M 0 -10 L 2.47 -2.47 L 10 0 L 2.47 2.47 L 0 10 L -2.47 2.47 L -10 0 L -2.47 -2.47 Z" fill="currentColor"/></svg>
+      </span>
+    </div>
+    <div class="hud-pickup" data-pk="slowmo" style="display:none">
+      <div class="hud-pickup-bar"><div class="hud-pickup-fill" style="background:#b16dff"></div></div>
+      <span class="hud-pickup-icon" style="color:#b16dff">
+        <svg viewBox="-12 -12 24 24"><path d="M -6 -8 L 6 -8 L 0.5 0 L 6 8 L -6 8 L -0.5 0 Z" fill="currentColor"/></svg>
+      </span>
+    </div>
+  </div>
+  <div class="hud-el hud-score">
+    <span class="lbl">SCORE</span>
+    <span class="val" id="hud-score">0</span>
+  </div>
+  <div class="hud-el hud-kills">
+    <span class="lbl">KILLS</span>
+    <span class="val" id="hud-kills">0</span>
+  </div>
+  <div class="hud-el hud-hp-wrap">
+    <div class="hud-hp">
+      <div class="hud-hp-fill" id="hud-hp" style="width:100%"></div>
+      <div class="hud-hp-tick" style="left:25%"></div>
+      <div class="hud-hp-tick" style="left:50%"></div>
+      <div class="hud-hp-tick" style="left:75%"></div>
+    </div>
+    <div class="hud-hp-labels">
+      <span id="hud-hp-lbl-mid" style="left:50%;transform:translateX(-50%)">50</span>
+      <span id="hud-hp-lbl-max" style="right:0">100</span>
+    </div>
+  </div>
+  <div class="hud-el hud-xp">
+    <div class="hud-xp-fill" id="hud-xp" style="width:0%"></div>
+  </div>
+</div>
+
+<div class="hud-el hud-time" id="hud-time" style="display:none">00:00</div>
+<div class="hud-el hud-dmc" id="dmcRating">D</div>
+<div class="hud-el hud-streak" id="dmcCombo">STREAK</div>
+
+<button class="pause-btn" id="pauseBtn" title="Пауза (P)">
+  <svg viewBox="0 0 24 24" fill="currentColor">
+    <rect x="6.5" y="5" width="4" height="14" rx="1.2"/>
+    <rect x="13.5" y="5" width="4" height="14" rx="1.2"/>
+  </svg>
+</button>
+<button class="mute-btn" id="muteBtn" title="Sound">
+  <svg class="ico-on" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+    <path d="M16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <path d="M18.6 6a8 8 0 0 1 0 12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  </svg>
+  <svg class="ico-off" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+    <path d="M16 9l6 6 M22 9l-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>
+</button>
+
+<div class="joystick" id="joy"><div class="joystick-knob" id="joyKnob"></div></div>
+<div class="fps-tag" id="fpsTag"></div>
+
+<div class="overlay show" id="titleScreen">
+  <div class="title">ТАРАЩИЛКА</div>
+  <div class="menu-tugriks" id="menuTugriks">◆ 0</div>
+  <div class="menu-soon">скоро придумаем куда их тратить</div>
+  <button class="btn" id="playBtn">PLAY</button>
+  <button class="btn small" id="shopBtn">🛒 SHOP</button>
+  <button class="btn small changelog-btn" id="changelogBtn">📜 CHANGELOG</button>
+  <div class="menu-credits">
+    <div>все анимации — ASCII</div>
+    <div>вся музыка — <span class="credits-dim">(говно)</span> процедурная</div>
+    <div>ни одного ассета при создании игры не пострадало</div>
+  </div>
+</div>
+
+<div class="overlay" id="upgradeScreen">
+  <h2>LEVEL UP</h2>
+  <div class="upgrades" id="upgradeList"></div>
+</div>
+
+<div class="overlay" id="pauseScreen">
+  <div class="pause-panel">
+    <button class="pause-close" id="pauseClose" title="Resume">✕</button>
+    <h2>PAUSED</h2>
+    <div class="pause-tabs">
+      <button class="pause-tab active" data-tab="main">Main</button>
+      <button class="pause-tab" data-tab="upgrades">Upgrades</button>
+      <button class="pause-tab" data-tab="stats">Stats</button>
+      <button class="pause-tab" data-tab="dev" id="devTabBtn" style="display:none">Dev</button>
+    </div>
+    <div class="pause-content">
+      <div class="pause-pane active" data-pane="main">
+        <div class="slider-row">
+          <label>VIEW ZOOM <span class="v" id="zoomVal">0.70×</span></label>
+          <input type="range" id="zoomSlider" min="0.5" max="2.0" step="0.05" value="0.7">
+        </div>
+        <button class="btn small" id="pauseReportBtn">ОТЧЁТ ЗАБЕГА</button>
+        <button class="btn small" id="devUnlockBtn" style="align-self:center;font-size:11px;opacity:0.55">DEV TOOLS</button>
+        <button class="btn small" id="devPanelBtn" style="align-self:center;font-size:11px;opacity:0.55;display:none">⚙ TUNING PANEL</button>
+        <button class="btn danger" id="quitBtn">QUIT TO MENU</button>
+      </div>
+      <div class="pause-pane" data-pane="upgrades">
+        <div class="stat-list" id="pauseUpgradesList"></div>
+      </div>
+      <div class="pause-pane" data-pane="stats">
+        <div class="stat-list" id="pauseStatsList"></div>
+      </div>
+      <div class="pause-pane" data-pane="dev">
+        <div class="slider-row">
+          <label>GAME SPEED <span class="v" id="speedVal">×1.0</span></label>
+          <input type="range" id="speedSlider" min="1" max="10" step="0.5" value="1">
+        </div>
+        <button class="btn small" id="spawnWaveBtn">SPAWN ×2 WAVE NOW</button>
+        <button class="btn small" id="devTugriksBtn">+1000 ◆ TUGRIKS</button>
+        <div class="stat-list" id="devList"></div>
+      </div>
+    </div>
+    <div class="pause-resume-bar">
+      <button class="btn" id="resumeBtn" style="padding:12px 40px;font-size:14px">RESUME</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="tuningPanel">
+  <div class="tune-panel">
+    <div class="tune-header">
+      <h2>TUNING</h2>
+      <button class="pause-close" id="tuneCloseBtn" title="Close">✕</button>
+    </div>
+    <div class="tune-actions tune-actions-apply">
+      <button class="tune-btn tune-btn-apply" id="tuneApplyBtn">⚡ APPLY TO GAME</button>
+    </div>
+    <div class="tune-actions">
+      <button class="tune-btn" id="tuneExportBtn">📤 EXPORT</button>
+      <button class="tune-btn" id="tuneImportBtn">📥 IMPORT</button>
+      <button class="tune-btn" id="tuneBaseBtn">📌 SET BASE</button>
+      <button class="tune-btn tune-btn-danger" id="tuneResetAllBtn">↺ RESET</button>
+      <input type="file" id="tuneImportFile" accept=".json,application/json" style="display:none">
+    </div>
+    <div class="tune-info" id="tuneInfo">0 изменений</div>
+    <div class="tune-content" id="tuneContent"></div>
+  </div>
+</div>
+
+<div class="overlay" id="deadScreen">
+  <div class="dead-title">GAME OVER</div>
+  <div class="best-tag" id="bestTag"></div>
+  <div>
+    <div class="stat-row"><span>TIME SURVIVED</span><span class="v" id="statTime">0:00</span></div>
+    <div class="stat-row"><span>SCORE</span><span class="v" id="statScore">0</span></div>
+    <div class="stat-row"><span>KILLS</span><span class="v" id="statKills">0</span></div>
+    <div class="stat-row"><span>WAVE REACHED</span><span class="v" id="statWave">1</span></div>
+    <div class="stat-row"><span>LEVEL</span><span class="v" id="statLvl">1</span></div>
+    <div class="stat-row"><span>RANK</span><span class="v" id="statRank">D</span></div>
+  </div>
+  <div class="reward-tag" id="rewardTag">◆ +0</div>
+  <button class="btn small reward-btn" id="claimBtn">CLAIM REWARD</button>
+  <div class="dead-btns">
+    <button class="btn" id="retryBtn">RETRY</button>
+    <button class="btn small" id="deadMenuBtn">MAIN MENU</button>
+    <button class="btn small" id="deadReportBtn" style="display:none">ОТЧЁТ</button>
+    <button class="btn small" id="devReviveBtn" style="opacity:0.35;font-size:10px">DEV</button>
+  </div>
+</div>
+
+<div class="overlay" id="runReportModal">
+  <div class="report-panel">
+    <div class="report-head">
+      <h2>ОТЧЁТ ЗАБЕГА</h2>
+      <button class="pause-close" id="runReportClose">✕</button>
+    </div>
+    <textarea id="runReportText" readonly spellcheck="false"></textarea>
+    <div class="report-btns">
+      <button class="btn small" id="runReportCopy">КОПИРОВАТЬ</button>
+      <button class="btn small" id="runReportClose2">ЗАКРЫТЬ</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="shopScreen">
+  <div class="shop-panel">
+    <button class="pause-close" id="shopClose" title="Close">✕</button>
+    <h2>SHOP</h2>
+    <div class="tugriks-balance">◆ <span id="shopBalance">0</span></div>
+    <div class="shop-tabs">
+      <button class="shop-tab active" data-shop-tab="skins">SKINS</button>
+      <button class="shop-tab" data-shop-tab="tracks">TRACKS</button>
+    </div>
+    <div class="shop-body" id="shopBody"></div>
+    <button class="btn" id="shopBackBtn" style="padding:12px 40px;font-size:14px;margin-top:6px">CLOSE</button>
+  </div>
+</div>
+
+<div class="overlay" id="changelogScreen">
+  <div class="changelog-panel">
+    <button class="pause-close" id="changelogClose" title="Close">✕</button>
+    <h2>CHANGELOG</h2>
+    <div class="changelog-list" id="changelogList"></div>
+    <button class="btn" id="changelogBackBtn" style="padding:12px 40px;font-size:14px;margin-top:6px">CLOSE</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const FILES = [
+    'js/changelog.js',
+    'js/tuning.js',
+    'js/config.js',
+    'js/audio.js',
+    'js/upgrades.js',
+    'js/state.js',
+    'js/input.js',
+    'js/world.js',
+    'js/render.js',
+    'js/ui.js',
+    'js/menu-bg.js',
+    'js/main.js',
+  ];
+  let done = 0;
+  function loadWithRetry(src, attempt) {
+    return new Promise((resolve) => {
+      const s = document.createElement('script');
+      const sep = src.indexOf('?') === -1 ? '?' : '&';
+      s.src = src + sep + '_r=' + attempt + '_' + Date.now();
+      s.onload = () => { console.log('[LOAD] ✓ ' + src + (attempt > 0 ? ' (попытка ' + (attempt + 1) + ')' : '')); done++; resolve(); };
+      s.onerror = () => {
+        if (attempt < 5) {
+          console.warn('[LOAD] ⟳ ' + src + ' — повтор, попытка ' + (attempt + 2));
+          setTimeout(() => { loadWithRetry(src, attempt + 1).then(resolve); }, 250 + attempt * 200);
+        } else { console.error('[LOAD] ✗ ' + src + ' не загружен после 5 попыток'); resolve(); }
+      };
+      document.head.appendChild(s);
+    });
+  }
+  (async () => {
+    console.log('[LOAD] загружаю ' + FILES.length + ' скриптов...');
+    for (const f of FILES) await loadWithRetry(f, 0);
+    console.log('[LOAD] готово — загружено ' + done + '/' + FILES.length);
+  })();
+})();
+</script>
+</body>
+</html>

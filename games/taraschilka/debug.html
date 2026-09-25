@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DEBUG · ТАРАЩИЛКА</title>
+<style>
+  body { background:#05060a; color:#0f0; font: 14px ui-monospace, monospace; padding:14px; margin:0; }
+  h1 { color:#b16dff; font-size:16px; letter-spacing:0.2em; margin:0 0 12px 0; }
+  .row { padding:6px 0; border-bottom:1px solid #222; }
+  .ok { color:#4dffb0; }
+  .fail { color:#ff3060; font-weight:700; }
+  .err { color:#ff8020; white-space:pre-wrap; padding:8px 0; border-bottom:1px dashed #444; font-size:12px; }
+  .final { margin-top:20px; padding:12px; border-radius:8px; text-align:center; font-weight:700; }
+  .final.ok { background: rgba(77,255,176,0.1); color:#4dffb0; border:1px solid #4dffb0; }
+  .final.bad { background: rgba(255,48,96,0.1); color:#ff3060; border:1px solid #ff3060; }
+</style>
+</head>
+<body>
+<h1>DEBUG · ПРОВЕРКА ФАЙЛОВ</h1>
+<canvas id="game" style="display:none"></canvas>
+<canvas id="menuBg" style="display:none"></canvas>
+<div id="log"></div>
+
+<script>
+const log = document.getElementById('log');
+const errors = [];
+
+function row(label, ok, extra) {
+  const d = document.createElement('div');
+  d.className = 'row ' + (ok ? 'ok' : 'fail');
+  d.textContent = (ok ? '✓ ' : '✗ ') + label + (extra ? ' — ' + extra : '');
+  log.appendChild(d);
+}
+
+window.addEventListener('error', e => {
+  const d = document.createElement('div');
+  d.className = 'err';
+  const file = e.filename ? e.filename.split('/').pop().split('?')[0] : '?';
+  d.textContent = '❌ ' + file + ':' + (e.lineno || '?') +
+    '\n   ' + (e.message || 'unknown error');
+  log.appendChild(d);
+  errors.push(e);
+});
+</script>
+
+<script src="js/tuning.js"></script>
+<script>
+row('tuning.js', typeof TUNE === 'object', typeof TUNE === 'object' ? 'ok' : 'TUNE отсутствует');
+</script>
+
+<script src="js/config.js"></script>
+<script>
+row('config.js', typeof DPR === 'number', typeof DPR === 'number' ? 'DPR=' + DPR : 'DPR отсутствует');
+</script>
+
+<script src="js/audio.js"></script>
+<script>
+row('audio.js', typeof A === 'object' && typeof TRACKS === 'object',
+    typeof A === 'object' ? 'ok' : 'A отсутствует');
+</script>
+
+<script src="js/upgrades.js"></script>
+<script>
+row('upgrades.js', typeof UPGRADES !== 'undefined' && Array.isArray(UPGRADES) && UPGRADES.length > 0,
+    typeof UPGRADES !== 'undefined' ? UPGRADES.length + ' шт' : 'UPGRADES отсутствует');
+</script>
+
+<script src="js/state.js"></script>
+<script>
+row('state.js', typeof G === 'object' && typeof W === 'number',
+    typeof G === 'object' ? 'W=' + W : 'G отсутствует');
+</script>
+
+<script src="js/input.js"></script>
+<script>
+row('input.js', typeof initInput === 'function',
+    typeof initInput === 'function' ? 'ok' : 'initInput отсутствует');
+</script>
+
+<script src="js/world.js"></script>
+<script>
+row('world.js', typeof spawnEnemy === 'function' && typeof update === 'function',
+    typeof update === 'function' ? 'ok' : 'update отсутствует');
+</script>
+
+<script src="js/render.js"></script>
+<script>
+row('render.js', typeof draw === 'function',
+    typeof draw === 'function' ? 'ok' : 'draw отсутствует');
+</script>
+
+<script src="js/ui.js"></script>
+<script>
+row('ui.js', typeof initUI === 'function' && typeof openUpgrade === 'function',
+    typeof initUI === 'function' ? 'ok' : 'initUI отсутствует');
+</script>
+
+<script src="js/menu-bg.js"></script>
+<script>
+row('menu-bg.js', true, 'ok');
+</script>
+
+<script src="js/main.js"></script>
+<script>
+row('main.js', typeof boot === 'function' && typeof loop === 'function',
+    typeof boot === 'function' ? 'ok' : 'boot отсутствует');
+
+setTimeout(() => {
+  const d = document.createElement('div');
+  d.className = 'final ' + (errors.length ? 'bad' : 'ok');
+  d.textContent = errors.length
+    ? '❌ ' + errors.length + ' ОШИБОК — скинь скрин наверх'
+    : '✓ ВСЁ ЗАГРУЗИЛОСЬ БЕЗ ОШИБОК';
+  log.appendChild(d);
+}, 600);
+</script>
+</body>
+</html>
