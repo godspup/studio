@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BEATBOX DIAG</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #05060a; color: #e0e0e8; font-family: monospace;
+         padding: 10px; font-size: 13px; }
+  h1 { color: #b16dff; font-size: 15px; letter-spacing: 0.15em; margin-bottom: 8px; }
+  #step { background: #1a1428; border: 2px solid #4a3a7a; padding: 8px;
+          border-radius: 6px; margin-bottom: 10px; font-size: 12px;
+          color: #4dffb0; font-weight: 700; word-break: break-word; }
+  #step.err { background: #3a0010; border-color: #ff3060; color: #fff; }
+  button { padding: 12px 20px; background: #12121a; color: #fff;
+           border: 2px solid #4a3a7a; border-radius: 6px;
+           font-family: inherit; font-size: 14px; font-weight: 700;
+           cursor: pointer; letter-spacing: 0.05em; margin-right: 6px; }
+  button:active { background: #1e1a2e; }
+  #recBtn.on { background: rgba(255,48,96,0.3); border-color: #ff3060; }
+  #recBtn:disabled { opacity: 0.5; }
+  .row { margin-bottom: 10px; }
+  #live { display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+          font-size: 11px; margin-bottom: 10px; }
+  #live .c { background: #0a0812; border: 1px solid #2a2a4a; border-radius: 4px;
+             padding: 4px 6px; }
+  #live .c b { color: #7a8aad; font-weight: 400; }
+  #live .c span { color: #4dffb0; font-weight: 700; float: right; }
+  #events { width: 100%; height: 320px; padding: 8px; background: #05060a;
+            color: #4dffb0; border: 1px solid #2a2a4a; border-radius: 6px;
+            font-family: monospace; font-size: 10px; resize: vertical;
+            white-space: pre; line-height: 1.35; }
+  canvas { width: 100%; height: 80px; background: #0a0812;
+           border: 1px solid #2a2a4a; border-radius: 4px; display: block;
+           margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1>BEATBOX DIAGNOSTIC v2 <a href="sequencer.html" style="float:right;font-size:11px;color:#4dffb0;text-decoration:none;border:1px solid #4dffb0;border-radius:4px;padding:3px 8px;letter-spacing:0.05em">↩ В СЕКВЕНСОР</a></h1>
+
+<div id="step">нажми ЗАПИСЬ</div>
+
+<div class="row">
+  <button id="recBtn" type="button">● ЗАПИСЬ</button>
+  <button id="clearBtn" type="button">ОЧИСТИТЬ</button>
+  <button id="copyBtn" type="button">📋 КОПИ</button>
+</div>
+
+<div style="background:#0a0812;border:1px solid #2a2a4a;border-radius:8px;padding:8px;margin-bottom:8px">
+  <div style="font-size:11px;color:#b16dff;font-weight:700;letter-spacing:0.1em;margin-bottom:6px">ШАБЛОНЫ ОБУЧЕНИЯ</div>
+  <div class="row" style="margin-bottom:6px">
+    <label style="font-size:11px">Инструмент:
+      <select id="tmplTarget" style="background:#12121a;color:#fff;border:1px solid #4a3a7a;border-radius:4px;padding:4px 6px;font-family:inherit;font-size:11px">
+        <option value="kick">KICK</option>
+        <option value="snare">SNARE</option>
+        <option value="hat">HAT</option>
+        <option value="clap">CLAP</option>
+        <option value="bass">BASS</option>
+        <option value="melody">MELODY</option>
+      </select>
+    </label>
+    <label style="font-size:11px">Слог:
+      <select id="tmplSyllable" style="background:#12121a;color:#fff;border:1px solid #4a3a7a;border-radius:4px;padding:4px 6px;font-family:inherit;font-size:11px">
+      </select>
+    </label>
+    <button id="tmplLearnBtn" type="button" class="go">● ОБУЧИТЬ (запиши 1 удар)</button>
+    <span id="tmplStatus" style="font-size:11px;color:#7a8aad"></span>
+  </div>
+  <div id="tmplList" style="font-size:11px;color:#c0cee0;line-height:1.6"></div>
+  <div class="row" style="margin-top:6px">
+    <button id="tmplExportBtn" type="button" style="font-size:11px">📋 Экспорт JSON</button>
+    <button id="tmplClearBtn" type="button" style="font-size:11px">🗑 Очистить все</button>
+  </div>
+</div>
+
+<canvas id="wave"></canvas>
+
+<div class="row" style="align-items:center">
+  <span style="color:#4dffb0;font-weight:700;font-size:11px">🎙 ЗАПИСЬ:</span>
+  <audio id="recPlayback" controls style="flex:1;min-width:180px;display:none"></audio>
+  <button id="dlRecBtn" type="button" style="display:none">⬇ .webm</button>
+  <span id="recInfo" style="font-size:11px;color:#7a8aad"></span>
+</div>
+<div class="row">
+  <button id="dlCsvBtn" type="button" style="background:#12121a;color:#4dffb0;border-color:#4dffb0">⬇ CSV покадрово</button>
+  <span id="csvInfo" style="font-size:11px;color:#7a8aad"></span>
+</div>
+
+<div id="live">
+  <div class="c"><b>RMS</b><span id="vRms">0.000</span></div>
+  <div class="c"><b>LEVEL</b><span id="vLevel">0</span></div>
+  <div class="c"><b>CENT</b><span id="vCent">0</span></div>
+  <div class="c"><b>ZCR</b><span id="vZcr">0.000</span></div>
+  <div class="c"><b>PITCH</b><span id="vPitch">-</span></div>
+  <div class="c"><b>EVENTS</b><span id="vCount">0</span></div>
+  <div class="c"><b>TRIG</b><span id="vTrig">-</span></div>
+</div>
+
+<textarea id="events" readonly placeholder="здесь появятся события после удара..."></textarea>
+
+<script>
+var AC = null;
+var analyser = null;
+var source = null;
+var stream = null;
+var dataT = null;
+var dataF = null;
+var running = false;
+var rafId = null;
+var noiseFloor = 0.008;
+var lastOnset = 0;
+var recStart = 0;
+var events = [];
+var prevBands = [0,0,0,0,0,0];
+var evTrigger = '';
+
+var evActive = false;
+var evStart = 0;
+var evPeak = 0;
+var evBandsSum = [0,0,0,0,0,0];
+var evCentSum = 0;
+var evZcrSum = 0;
+var evCount = 0;
+var evPitch = [];
+
+var mediaRec = null;
+var mediaChunks = [];
+var mediaBlob = null;
+var frameLog = [];
+var lastFrameLog = 0;
+
+function startMediaRecorder() {
+  stopMediaRecorder();
+  mediaChunks = [];
+  mediaBlob = null;
+  frameLog = [];
+  lastFrameLog = 0;
+  var playEl = document.getElementById('recPlayback');
+  if (playEl) { playEl.style.display = 'none'; playEl.removeAttribute('src'); }
+  var dlBtn = document.getElementById('dlRecBtn');
+  if (dlBtn) dlBtn.style.display = 'none';
+  var csvInfo = document.getElementById('csvInfo');
+  if (csvInfo) csvInfo.textContent = '';
+  var info = document.getElementById('recInfo');
+  if (info) info.textContent = '';
+
+  if (!window.MediaRecorder) {
+    if (info) info.textContent = 'MediaRecorder не поддерживается';
+    return;
+  }
+  try {
+    var mime = '';
+    var candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+    for (var i = 0; i < candidates.length; i++) {
+      if (MediaRecorder.isTypeSupported(candidates[i])) { mime = candidates[i]; break; }
+    }
+    mediaRec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+  } catch (e) {
+    if (info) info.textContent = 'recorder: ' + (e.message || e);
+    mediaRec = null;
+    return;
+  }
+  mediaRec.ondataavailable = function (e) {
+    if (e.data && e.data.size > 0) mediaChunks.push(e.data);
+  };
+  mediaRec.onstop = function () {
+    if (mediaChunks.length === 0) return;
+    mediaBlob = new Blob(mediaChunks, { type: (mediaRec && mediaRec.mimeType) || 'audio/webm' });
+    var url = URL.createObjectURL(mediaBlob);
+    var p = document.getElementById('recPlayback');
+    if (p) { p.src = url; p.style.display = 'block'; }
+    var d = document.getElementById('dlRecBtn');
+    if (d) d.style.display = 'inline-block';
+    var n = document.getElementById('recInfo');
+    if (n) n.textContent = (mediaBlob.size / 1024).toFixed(1) + ' KB';
+  };
+  try {
+    mediaRec.start(1000);
+    if (info) info.textContent = '● идёт запись...';
+  } catch (e) {
+    if (info) info.textContent = 'start: ' + (e.message || e);
+    mediaRec = null;
+  }
+}
+
+function stopMediaRecorder() {
+  if (mediaRec && mediaRec.state !== 'inactive') {
+    try { mediaRec.stop(); } catch (e) {}
+  }
+  mediaRec = null;
+}
+
+var _dlRecBtn = document.getElementById('dlRecBtn');
+if (_dlRecBtn) _dlRecBtn.onclick = function () {
+  if (!mediaBlob) return;
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(mediaBlob);
+  a.download = 'beatbox-rec-' + Date.now() + '.webm';
+  a.click();
+};
+
+var _dlCsvBtn = document.getElementById('dlCsvBtn');
+if (_dlCsvBtn) _dlCsvBtn.onclick = function () {
+  if (!frameLog.length) {
+    var ci = document.getElementById('csvInfo');
+    if (ci) ci.textContent = 'нет данных';
+    return;
+  }
+  var lines = ['t_ms,rms,zcr,cent,pitch,b0,b1,b2,b3,b4,b5'];
+  for (var i = 0; i < frameLog.length; i++) {
+    var f = frameLog[i];
+    lines.push(f.t + ',' + f.rms.toFixed(4) + ',' + f.zcr.toFixed(4) + ',' + f.cent + ',' + (f.pitch > 0 ? Math.round(f.pitch) : '') + ',' + f.bands.join(','));
+  }
+  var txt = lines.join('\n');
+  var blob = new Blob([txt], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'beatbox-frames-' + Date.now() + '.csv';
+  a.click();
+  var ci2 = document.getElementById('csvInfo');
+  if (ci2) ci2.textContent = frameLog.length + ' кадров, ' + (txt.length / 1024).toFixed(1) + ' KB';
+};
+
+var SYLLABLES = [
+  { s: 'пу',   def: 'kick',       label: 'kick закрытый' },
+  { s: 'бу',   def: 'kick',       label: 'kick голосом' },
+  { s: 'бум',  def: 'kick',       label: 'kick глубокий' },
+  { s: 'пук',  def: 'kick',       label: 'kick+clap' },
+  { s: 'тц',   def: 'hat',        label: 'hat закрытый' },
+  { s: 'тс',   def: 'hat',        label: 'hat короткий' },
+  { s: 'к',    def: 'hat',        label: 'hat щёлкающий' },
+  { s: 'тшш',  def: 'hat',        label: 'hat открытый' },
+  { s: 'шш',   def: 'hat',        label: 'шейкер' },
+  { s: 'нц',   def: 'snare',      label: 'snare язык' },
+  { s: 'кх',   def: 'snare',      label: 'snare горловой' },
+  { s: 'пф',   def: 'snare',      label: 'snare губы' },
+  { s: 'пшш',  def: 'snare',      label: 'snare шум' },
+  { s: 'п',    def: 'clap',       label: 'clap' },
+  { s: 'боо',  def: 'bass',       label: 'bass низкий' },
+  { s: 'ууу',  def: 'bass',       label: 'bass/мелодия' },
+  { s: 'ооо',  def: 'melody',     label: 'мелодия' },
+  { s: 'ааа',  def: 'melody',     label: 'мелодия' },
+  { s: 'ррр',  def: 'bass',       label: 'growl' },
+  { s: 'щ',    def: 'snare',      label: 'райд' },
+];
+
+var TEMPLATES = {};
+try {
+  var saved = localStorage.getItem('beatbox-templates-v1');
+  if (saved) TEMPLATES = JSON.parse(saved);
+} catch (e) { TEMPLATES = {}; }
+
+function saveTemplates() {
+  try { localStorage.setItem('beatbox-templates-v1', JSON.stringify(TEMPLATES)); } catch (e) {}
+}
+
+function populateSyllables() {
+  var sel = document.getElementById('tmplSyllable');
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (var i = 0; i < SYLLABLES.length; i++) {
+    var o = document.createElement('option');
+    o.value = SYLLABLES[i].s;
+    o.textContent = SYLLABLES[i].s + ' (' + SYLLABLES[i].label + ')';
+    sel.appendChild(o);
+  }
+}
+
+function renderTemplates() {
+  var el = document.getElementById('tmplList');
+  if (!el) return;
+  var keys = Object.keys(TEMPLATES);
+  if (keys.length === 0) {
+    el.innerHTML = '<span style="color:#4a5a7a">Шаблонов нет. Выбери инструмент, слог, жми ОБУЧИТЬ и бей один удар.</span>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var t = TEMPLATES[k];
+    html += '<div style="padding:3px 0;border-bottom:1px solid #1a1524">' +
+      '<span style="color:#4dffb0;font-weight:700">' + t.syllable + '</span> → ' +
+      '<span style="color:#b16dff">' + t.target + '</span> ' +
+      '<span style="color:#7a8aad;font-size:10px">' +
+      'rms=' + t.rms.toFixed(3) +
+      ' cent=' + t.cent +
+      ' zcr=' + t.zcr.toFixed(3) +
+      ' bands=[' + t.bands.join(',') + '] ' +
+      '×' + t.count + ' ' +
+      '</span>' +
+      '<button data-del="' + k + '" style="float:right;padding:1px 6px;background:transparent;color:#ff3060;border:1px solid #ff3060;border-radius:3px;font-size:10px;cursor:pointer">×</button>' +
+      '</div>';
+  }
+  el.innerHTML = html;
+  var delBtns = el.querySelectorAll('button[data-del]');
+  for (var j = 0; j < delBtns.length; j++) {
+    delBtns[j].onclick = function () {
+      var key = this.getAttribute('data-del');
+      delete TEMPLATES[key];
+      saveTemplates();
+      renderTemplates();
+    };
+  }
+}
+
+var learningMode = false;
+var learnSamples = [];
+
+function startLearning() {
+  if (!running) {
+    setStep('сначала нажми ● ЗАПИСЬ', true);
+    return;
+  }
+  learningMode = true;
+  learnSamples = [];
+  var target = document.getElementById('tmplTarget').value;
+  var syll = document.getElementById('tmplSyllable').value;
+  document.getElementById('tmplStatus').textContent = 'жди удар... (' + syll + ' → ' + target + ')';
+}
+
+function captureLearnSample(f) {
+  learnSamples.push({
+    rms: f.rms,
+    cent: f.cent,
+    zcr: f.zcr,
+    bands: f.bands.slice(),
+  });
+  var st = document.getElementById('tmplStatus');
+  if (st) st.textContent = 'поймал, ещё бей (' + learnSamples.length + '/5)';
+  if (learnSamples.length >= 5) {
+    finalizeLearning();
+  }
+}
+
+function finalizeLearning() {
+  learningMode = false;
+  var target = document.getElementById('tmplTarget').value;
+  var syll = document.getElementById('tmplSyllable').value;
+  if (learnSamples.length === 0) return;
+
+  var avgRms = 0, avgCent = 0, avgZcr = 0;
+  var avgBands = [0,0,0,0,0,0];
+  for (var i = 0; i < learnSamples.length; i++) {
+    var s = learnSamples[i];
+    avgRms += s.rms;
+    avgCent += s.cent;
+    avgZcr += s.zcr;
+    for (var b = 0; b < 6; b++) avgBands[b] += s.bands[b];
+  }
+  avgRms /= learnSamples.length;
+  avgCent /= learnSamples.length;
+  avgZcr /= learnSamples.length;
+  for (var b = 0; b < 6; b++) avgBands[b] = Math.round(avgBands[b] / learnSamples.length);
+
+  var key = target + ':' + syll;
+  if (TEMPLATES[key]) {
+    var t = TEMPLATES[key];
+    var n = t.count;
+    t.rms = (t.rms * n + avgRms) / (n + 1);
+    t.cent = (t.cent * n + avgCent) / (n + 1);
+    t.zcr = (t.zcr * n + avgZcr) / (n + 1);
+    for (var b = 0; b < 6; b++) t.bands[b] = Math.round((t.bands[b] * n + avgBands[b]) / (n + 1));
+    t.count = n + learnSamples.length;
+  } else {
+    TEMPLATES[key] = {
+      target: target,
+      syllable: syll,
+      rms: avgRms,
+      cent: avgCent,
+      zcr: avgZcr,
+      bands: avgBands,
+      count: learnSamples.length,
+    };
+  }
+  saveTemplates();
+  renderTemplates();
+  var st = document.getElementById('tmplStatus');
+  if (st) st.textContent = '✓ шаблон сохранён';
+  learnSamples = [];
+}
+
+function classifyByTemplates(f) {
+  var keys = Object.keys(TEMPLATES);
+  if (keys.length === 0) return null;
+  var bestKey = null, bestDist = Infinity;
+  for (var i = 0; i < keys.length; i++) {
+    var t = TEMPLATES[keys[i]];
+    var dBands = 0;
+    for (var b = 0; b < 6; b++) {
+      var diff = f.bands[b] - t.bands[b];
+      dBands += diff * diff;
+    }
+    var dCent = (f.cent - t.cent) / 1000;
+    var dZcr = (f.zcr - t.zcr) * 8;
+    var dist = Math.sqrt(dBands / 6 + dCent * dCent + dZcr * dZcr);
+    if (dist < bestDist) { bestDist = dist; bestKey = keys[i]; }
+  }
+  if (bestDist > 40) return null;
+  return { key: bestKey, template: TEMPLATES[bestKey], dist: bestDist };
+}
+
+document.getElementById('tmplLearnBtn').onclick = function () { startLearning(); };
+document.getElementById('tmplExportBtn').onclick = function () {
+  var txt = JSON.stringify(TEMPLATES, null, 2);
+  var ta = document.getElementById('events');
+  ta.removeAttribute('readonly');
+  ta.value = txt;
+  ta.focus(); ta.select();
+  setStep('JSON шаблонов выделен, жми Ctrl+C');
+  setTimeout(function () { ta.setAttribute('readonly', 'readonly'); }, 100);
+};
+document.getElementById('tmplClearBtn').onclick = function () {
+  if (!confirm('Стереть все шаблоны?')) return;
+  TEMPLATES = {};
+  saveTemplates();
+  renderTemplates();
+  setStep('шаблоны стёрты');
+};
+
+populateSyllables();
+
+renderTemplates();
+var _tmplSyllableEl = document.getElementById('tmplSyllable');
+function syncSyllableTarget() {
+  if (!_tmplSyllableEl) return;
+  var v = _tmplSyllableEl.value;
+  for (var i = 0; i < SYLLABLES.length; i++) {
+    if (SYLLABLES[i].s === v) {
+      var t = document.getElementById('tmplTarget');
+      if (t) t.value = SYLLABLES[i].def;
+      break;
+    }
+  }
+}
+if (_tmplSyllableEl) _tmplSyllableEl.onchange = syncSyllableTarget;
+syncSyllableTarget();
+
+renderTemplates();
+
+function setStep(msg, isErr) {
+  var el = document.getElementById('step');
+  el.textContent = msg;
+  if (isErr) el.className = 'err';
+  else el.className = '';
+}
+
+function updateLive(f) {
+  document.getElementById('vRms').textContent = f.rms.toFixed(3);
+  document.getElementById('vLevel').textContent = Math.min(99, Math.round(f.rms * 200));
+  document.getElementById('vCent').textContent = f.cent;
+  document.getElementById('vZcr').textContent = f.zcr.toFixed(3);
+  document.getElementById('vPitch').textContent = f.pitch > 0 ? Math.round(f.pitch) + 'Hz' : '-';
+  document.getElementById('vCount').textContent = events.length;
+}
+
+function detectPitch(buf, sr) {
+  var SIZE = Math.min(buf.length, 2048);
+  var rms = 0;
+  for (var i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.008) return -1;
+  var minLag = Math.max(2, Math.floor(sr / 1000));
+  var maxLag = Math.min(SIZE - 2, Math.floor(sr / 70));
+  var c = new Float32Array(maxLag + 1);
+  for (var lag = minLag; lag <= maxLag; lag++) {
+    var s = 0, n = SIZE - lag;
+    for (var j = 0; j < n; j++) s += buf[j] * buf[j + lag];
+    c[lag] = s / n;
+  }
+  var c0 = 0;
+  for (var i = 0; i < SIZE; i++) c0 += buf[i] * buf[i];
+  c0 /= SIZE;
+  if (c0 < 1e-8) return -1;
+  var maxval = -1, maxpos = -1;
+  for (var lag = minLag + 1; lag < maxLag; lag++) {
+    if (c[lag] > c[lag-1] && c[lag] > c[lag+1] && c[lag] > maxval) {
+      maxval = c[lag]; maxpos = lag;
+    }
+  }
+  if (maxpos < 0 || maxval <= 0) return -1;
+  if (maxval / c0 < 0.3) return -1;
+  var T0 = maxpos;
+  var x1 = c[T0-1], x2 = c[T0], x3 = c[T0+1];
+  var a = (x1 + x3 - 2*x2)/2, b = (x3 - x1)/2;
+  if (a) T0 = T0 - b/(2*a);
+  var freq = sr / T0;
+  if (freq < 70 || freq > 1000) return -1;
+  return freq;
+}
+
+function computeFeatures() {
+  analyser.getByteFrequencyData(dataF);
+  analyser.getFloatTimeDomainData(dataT);
+  var binHz = (AC.sampleRate / 2) / dataF.length;
+  var edges = [[20,100],[100,250],[250,800],[800,2500],[2500,6000],[6000,12000]];
+  var bands = [0,0,0,0,0,0];
+  var num = 0, den = 0;
+  for (var i = 0; i < dataF.length; i++) {
+    var f = i * binHz;
+    var v = dataF[i] / 255;
+    var e = v * v;
+    num += f * e;
+    den += e;
+    for (var b = 0; b < 6; b++) {
+      if (f >= edges[b][0] && f < edges[b][1]) { bands[b] += e; break; }
+    }
+  }
+  var cent = den > 1e-9 ? num / den : 0;
+  var zc = 0;
+  for (var i = 1; i < dataT.length; i++) {
+    if ((dataT[i] >= 0) !== (dataT[i-1] >= 0)) zc++;
+  }
+  var zcr = zc / dataT.length;
+  var sum = 0;
+  for (var i = 0; i < dataT.length; i++) sum += dataT[i] * dataT[i];
+  var rms = Math.sqrt(sum / dataT.length);
+  var maxB = 1;
+  for (var i = 0; i < 6; i++) if (bands[i] > maxB) maxB = bands[i];
+  var bandsN = [];
+  for (var i = 0; i < 6; i++) bandsN.push(Math.round(100 * bands[i] / maxB));
+  var pitch = detectPitch(dataT, AC.sampleRate);
+  return {
+    rms: rms, bands: bandsN, cent: Math.round(cent), zcr: zcr, pitch: pitch,
+    rawBands: bands
+  };
+}
+
+function drawWave() {
+  var cv = document.getElementById('wave');
+  var ctx = cv.getContext('2d');
+  var W = cv.width = cv.offsetWidth * 2;
+  var H = cv.height = 160;
+  ctx.fillStyle = '#0a0812';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#4dffb0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  var n = dataT.length;
+  for (var i = 0; i < n; i++) {
+    var x = (i / n) * W;
+    var y = H/2 + dataT[i] * H * 1.5;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+function pad5(n) {
+  var s = '' + Math.round(n);
+  while (s.length < 5) s = '0' + s;
+  return s;
+}
+
+function renderEvents() {
+  var out = [];
+  for (var i = 0; i < events.length; i++) {
+    var e = events[i];
+    var pitch = e.pitch > 0 ? (Math.round(e.pitch) + 'Hz') : '-';
+    var line = '#' + pad2(i + 1) +
+      ' t=' + pad5(e.t) + 'ms' +
+      ' rms=' + e.rms.toFixed(3) +
+      ' bands=[' + e.bands.join(',') + ']' +
+      ' cent=' + e.cent +
+      ' zcr=' + e.zcr.toFixed(3) +
+      ' pitch=' + pitch +
+      ' dur=' + e.dur + 'ms' +
+      ' [' + (e.trig || '?') + ']';
+    if (e.matched) {
+      line += ' → ' + e.matched.toUpperCase() + ' / ' + e.matchedSyll + ' (d=' + e.matchDist + ')';
+    }
+    out.push(line);
+  }
+  document.getElementById('events').value = out.join('\n');
+}
+
+function updateTrig(trig) {
+  var el = document.getElementById('vTrig');
+  if (!el) return;
+  if (trig === 'spec') { el.textContent = 'SPEC'; el.style.color = '#4dffb0'; }
+  else if (trig === 'rms') { el.textContent = 'RMS'; el.style.color = '#4dc0ff'; }
+  else { el.textContent = '-'; el.style.color = '#4dffb0'; }
+}
+
+function loop() {
+  if (!running) return;
+  var f = computeFeatures();
+  drawWave();
+  updateLive(f);
+
+  var now = performance.now();
+  var thresh = 0.008;
+  var sens = 1.5;
+  var threshold = Math.max(thresh, noiseFloor * sens);
+  if (f.rms < noiseFloor * 2.5) noiseFloor = noiseFloor * 0.96 + f.rms * 0.04;
+
+  var deriv = 0;
+  var derivBand = -1;
+  for (var bi = 0; bi < 6; bi++) {
+    var d = f.rawBands[bi] - prevBands[bi];
+    if (d > deriv) { deriv = d; derivBand = bi; }
+  }
+  // триггер по спектральной деривации: только если прыжок в ВЕРХНИХ полосах (2-5) и звук не тишина
+  var spectralTrigger = (deriv > 0.015 && derivBand >= 2 && f.rms > 0.005);
+  var rmsTrigger = (f.rms > threshold);
+  var trigType = spectralTrigger ? 'spec' : (rmsTrigger ? 'rms' : '');
+
+  updateTrig(evActive ? evTrigger : (f.rms > 0.008 ? 'rms' : '-'));
+
+  if (!evActive) {
+    if ((spectralTrigger || rmsTrigger) && now - lastOnset > 70) {
+      lastOnset = now;
+      evActive = true;
+      evTrigger = trigType;
+      evStart = now;
+      evPeak = f.rms;
+      evBandsSum = f.bands.slice();
+      evCentSum = f.cent;
+      evZcrSum = f.zcr;
+      evCount = 1;
+      evPitch = f.pitch > 0 ? [f.pitch] : [];
+    }
+  } else {
+    if (f.rms > evPeak) evPeak = f.rms;
+    for (var i = 0; i < 6; i++) evBandsSum[i] += f.bands[i];
+    evCentSum += f.cent;
+    evZcrSum += f.zcr;
+    evCount++;
+    if (f.pitch > 0) evPitch.push(f.pitch);
+
+    if (f.rms < threshold * 0.3 && !spectralTrigger) {
+      var dur = Math.round(now - evStart);
+      var avgBands = [];
+      for (var i = 0; i < 6; i++) avgBands.push(Math.round(evBandsSum[i] / evCount));
+      var medPitch = 0;
+      if (evPitch.length >= 2) {
+        evPitch.sort(function (a, b) { return a - b; });
+        medPitch = evPitch[Math.floor(evPitch.length / 2)];
+      }
+      var evt = {
+        t: Math.round(evStart - recStart),
+        rms: evPeak,
+        bands: avgBands,
+        cent: Math.round(evCentSum / evCount),
+        zcr: evZcrSum / evCount,
+        pitch: medPitch,
+        dur: dur,
+        trig: evTrigger,
+      };
+      if (learningMode) {
+        captureLearnSample(evt);
+      } else {
+        var tm = classifyByTemplates(evt);
+        if (tm) {
+          evt.matched = tm.template.target;
+          evt.matchedSyll = tm.template.syllable;
+          evt.matchDist = Math.round(tm.dist);
+        }
+      }
+      events.push(evt);
+      renderEvents();
+      evActive = false;
+    }
+  }
+  prevBands = f.rawBands.slice();
+  rafId = requestAnimationFrame(loop);
+}
+
+async function startRec() {
+  if (running) return;
+  var btn = document.getElementById('recBtn');
+  setStep('1/5: проверяю navigator.mediaDevices...');
+  if (!navigator.mediaDevices) {
+    setStep('ОШИБКА: navigator.mediaDevices = undefined. Открой через http://localhost:8001, не file://', true);
+    return;
+  }
+  setStep('2/5: проверяю getUserMedia...');
+  if (typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    setStep('ОШИБКА: getUserMedia не функция', true);
+    return;
+  }
+  btn.disabled = true;
+  setStep('3/5: создаю AudioContext...');
+  try {
+    if (!AC) {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (AC.state === 'suspended') await AC.resume();
+  } catch (e) {
+    btn.disabled = false;
+    setStep('ОШИБКА AudioContext: ' + (e.message || e), true);
+    return;
+  }
+  setStep('4/5: запрашиваю микрофон (разреши доступ)...');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+  } catch (e) {
+    btn.disabled = false;
+    var name = e.name || 'Error';
+    var hint = '';
+    if (name === 'NotAllowedError') hint = 'Разрешение отклонено. Настройки Chrome → Разрешения → Микрофон → Разрешить.';
+    else if (name === 'NotFoundError') hint = 'Микрофон не найден.';
+    else if (name === 'NotReadableError') hint = 'Микрофон занят другим приложением.';
+    else if (name === 'SecurityError') hint = 'Не secure context. Нужен localhost или https.';
+    setStep('ОШИБКА ' + name + ': ' + hint + ' | ' + (e.message || ''), true);
+    return;
+  }
+  setStep('5/5: подключаю анализатор...');
+  try {
+    source = AC.createMediaStreamSource(stream);
+    analyser = AC.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.15;
+    source.connect(analyser);
+    dataT = new Float32Array(analyser.fftSize);
+    dataF = new Uint8Array(analyser.frequencyBinCount);
+  } catch (e) {
+    btn.disabled = false;
+    setStep('ОШИБКА анализатора: ' + (e.message || e), true);
+    return;
+  }
+  startMediaRecorder();
+  running = true;
+  recStart = performance.now();
+  lastOnset = 0;
+  evActive = false;
+  btn.disabled = false;
+  btn.classList.add('on');
+  btn.textContent = '■ СТОП';
+  setStep('ЗАПИСЬ ИДЁТ. Бей битбокс. Внизу копятся события.');
+  loop();
+}
+
+function stopRec() {
+  running = false;
+  stopMediaRecorder();
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+  if (source) { try { source.disconnect(); } catch (e) {} source = null; }
+  var btn = document.getElementById('recBtn');
+  btn.classList.remove('on');
+  btn.textContent = '● ЗАПИСЬ';
+  setStep('СТОП. Событий: ' + events.length + '. Жми КОПИ и кидай мне.');
+}
+
+document.getElementById('recBtn').addEventListener('click', function () {
+  try { running ? stopRec() : startRec(); }
+  catch (e) { setStep('КРАШ: ' + (e.message || e), true); }
+});
+
+document.getElementById('clearBtn').addEventListener('click', function () {
+  events = [];
+  renderEvents();
+  setStep('очищено');
+});
+
+document.getElementById('copyBtn').addEventListener('click', function () {
+  var ta = document.getElementById('events');
+  ta.removeAttribute('readonly');
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, 999999);
+  try {
+    var ok = document.execCommand('copy');
+    setStep(ok ? 'скопировано в буфер' : 'выделено, жми Ctrl+C или долгий тап → копировать');
+  } catch (e) {
+    setStep('не скопировалось: ' + (e.message || e));
+  }
+  ta.setAttribute('readonly', 'readonly');
+});
+
+setStep('скрипт загружен. Нажми ЗАПИСЬ.');
+</script>
+</body>
+</html>

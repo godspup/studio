@@ -1,11 +1,11 @@
 # Патчеры и история версий
-.patch-backups/
-**/.patch-backups/
 tools/
 **/tools/
+.patch-backups/
+**/.patch-backups/
 PATCHER.TXT
 
-# Личные заметки
+# Личные файлы проектов
 selfnote.txt
 **/selfnote.txt
 ROADMAP.txt
@@ -15,7 +15,7 @@ ROADMAP.txt
 previews/
 **/previews/
 
-# Справка для чата
+# Справка для чатов
 CONTEXT.txt
 CONTEXT.md
 
@@ -24,3 +24,15 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+games/forest/
+
+# forest - локалка, не публикуется
+games/forest/
+games/forest.zip
+
+# локальные патчеры и бэкапы
+.patch-backups/
+dump.txt
+
+# секвенсор: без tools
+lols/sequencer/tools/
