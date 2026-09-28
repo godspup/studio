@@ -2013,12 +2013,13 @@ function bbStartMediaRec() {
       ? new MediaRecorder(bb.stream, { mimeType: mime })
       : new MediaRecorder(bb.stream);
   } catch (e) { bb.mediaRec = null; return; }
+  var _recMime = bb.mediaRec.mimeType || 'audio/webm';
   bb.mediaRec.ondataavailable = function (e) {
     if (e.data && e.data.size > 0) bb.mediaChunks.push(e.data);
   };
   bb.mediaRec.onstop = function () {
     if (bb.mediaChunks.length === 0) return;
-    bb.mediaBlob = new Blob(bb.mediaChunks, { type: bb.mediaRec.mimeType || 'audio/webm' });
+    bb.mediaBlob = new Blob(bb.mediaChunks, { type: _recMime });
     var url = URL.createObjectURL(bb.mediaBlob);
     var player = document.getElementById('bbRecPlayer');
     if (player) player.src = url;
@@ -2416,6 +2417,7 @@ function bbFinalizeNote() {
     }, 500);
   }
 
+  bb.currentSyllable = DEFAULT_SYLLABLE[type] || null;
   bb.currentSyllable = DEFAULT_SYLLABLE[type] || null;
   if (type === 'melody' || type === 'bass') {
     bbPlace(type, true, medPitch, bb.noteStep);
