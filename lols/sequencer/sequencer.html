@@ -24,6 +24,8 @@
                    font-family: inherit; font-size: 10px; font-weight: 700;
                    cursor: pointer; white-space: nowrap; }
   .topbar button:hover, .topbar button:active { background: #1e1a2e; border-color: #b16dff; }
+  .topbar button:disabled { opacity: 0.35; cursor: default; }
+  .topbar button:disabled:hover { background: #12121a; border-color: #4a3a7a; }
   .topbar button.primary { border-color: #4dffb0; color: #4dffb0; }
   .topbar button.primary.on { background: rgba(77,255,176,0.25); box-shadow: 0 0 10px rgba(77,255,176,0.5); }
   .topbar button.danger { border-color: #ff3060; color: #ff80a0; }
@@ -306,16 +308,48 @@
   .seq-row.add-row { height: 40px; padding: 4px 4px;
                      display: flex; align-items: center;
                      justify-content: flex-start; border-bottom: none; }
-  .add-instrument-btn { width: 32px; height: 32px; padding: 0;
+  .add-instrument-btn { width: 26px; height: 26px; padding: 0;
                         display: flex; align-items: center; justify-content: center;
                         background: rgba(122,74,255,0.12);
-                        border: 1px dashed #4a3a7a; border-radius: 6px;
+                        border: 1px dashed #4a3a7a; border-radius: 5px;
                         color: #b16dff; font-family: inherit;
-                        font-size: 20px; font-weight: 900;
+                        font-size: 16px; font-weight: 900;
                         cursor: pointer; touch-action: manipulation;
-                        line-height: 1; }
+                        line-height: 1; flex-shrink: 0; }
   .add-instrument-btn:hover, .add-instrument-btn:active {
     background: rgba(122,74,255,0.3); border-color: #b16dff; color: #fff; }
+  .add-row-btn { height: 26px; padding: 0 8px;
+                 display: flex; align-items: center; justify-content: center;
+                 background: rgba(122,74,255,0.08);
+                 border: 1px solid #4a3a7a; border-radius: 5px;
+                 color: #b16dff; font-family: inherit;
+                 font-size: 10px; font-weight: 700;
+                 letter-spacing: 0.03em;
+                 cursor: pointer; touch-action: manipulation;
+                 line-height: 1; flex-shrink: 0;
+                 white-space: nowrap; }
+  .add-row-btn:hover, .add-row-btn:active {
+    background: rgba(122,74,255,0.25); border-color: #b16dff; color: #fff; }
+  .add-row-btn.active { background: rgba(177,109,255,0.3);
+                        border-style: solid; border-color: #b16dff; color: #fff;
+                        box-shadow: 0 0 8px rgba(177,109,255,0.5); }
+  .add-bar { position: sticky; left: 0;
+             display: flex; flex-direction: row; align-items: center;
+             gap: 4px; padding: 4px;
+             background: #0a0812;
+             z-index: 4;
+             width: max-content;
+             box-shadow: 4px 0 8px -4px rgba(0,0,0,0.9); }
+  .page-help-btn { position: fixed; top: 8px; right: 8px;
+                   z-index: 1000; width: 34px; height: 34px;
+                   padding: 0; display: flex; align-items: center;
+                   justify-content: center;
+                   background: #12121a; color: #4dc0ff;
+                   border: 1px solid #4dc0ff; border-radius: 50%;
+                   font-family: inherit; font-size: 16px; font-weight: 900;
+                   cursor: pointer;
+                   box-shadow: 0 0 8px rgba(77,192,255,0.4); }
+  .page-help-btn:hover { background: rgba(77,192,255,0.15); }
 
   .library-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
                       z-index: 199; opacity: 0; pointer-events: none;
@@ -538,8 +572,8 @@
   Клик по <b>клетке</b>, по <b>названию дорожки</b> или по кнопке в <b>библиотеке</b> = слышишь звук
 </div>
 
-<div class="topbar" style="position:relative;">
-  <button id="helpBtn" style="position:absolute;top:5px;right:6px;padding:5px 10px;background:#12121a;color:#4dc0ff;border:1px solid #4dc0ff;border-radius:5px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;z-index:10;">❓ ПОМОЩЬ</button>
+<button id="helpBtn" class="page-help-btn" title="помощь по секвенсору">❓</button>
+<div class="topbar">
   <div class="row-group">
     <button id="playStopBtn" class="primary">▶ ИГРАТЬ</button>
     <button id="rewindBtn">⏮</button>
@@ -562,11 +596,6 @@
     <input type="range" id="zoomSlider" min="10" max="32" step="2" value="16">
   </div>
   <div class="row-group">
-    <button id="compactBtn" class="tgl">⊟ СВЕРНУТЬ</button>
-    <button id="followBtn" class="tgl active">◉ СЛЕЖЕНИЕ</button>
-  </div>
-
-  <div class="row-group">
     <label>СВИНГ</label>
     <input type="range" id="swingSlider" min="0" max="0.7" step="0.05" value="0">
   </div>
@@ -577,7 +606,6 @@
   <div class="row-group">
     <button id="randomBtn">РАНДОМ</button>
     <button id="selectModeBtn" class="tgl" title="режим выделения рамкой">▭ ВЫДЕЛИТЬ</button>
-    <button id="trackMoveBtn" class="tgl" title="режим перемещения дорожек">⇅ ДВИГАТЬ</button>
     <div class="clipboard-panel" id="clipboardPanel">
       <button id="btnCopy" class="primary">COPY</button>
       <button id="btnPaste" class="primary" disabled>PASTE</button>
@@ -587,9 +615,9 @@
   </div>
 
   <div class="row-group" style="flex-basis:100%; width:100%;">
+    <button id="undoBtn" title="отменить (Ctrl+Z)">↶ ОТМЕНА</button>
+    <button id="redoBtn" title="повторить (Ctrl+Shift+Z)">↷ ПОВТОР</button>
     <button id="clearBtn">ОЧИСТИТЬ</button>
-    <button id="exportBtn">📤 ЭКСПОРТ</button>
-    <button id="importBtn">📥 ИМПОРТ</button>
   </div>
 </div>
 
@@ -663,7 +691,8 @@
 <div class="io-block">
   <textarea id="ioArea" placeholder="JSON для экспорта/импорта"></textarea>
   <div class="row-flex">
-    <button onclick="document.getElementById('ioArea').select()">ВЫДЕЛИТЬ</button>
+    <button id="exportBtn" title="сериализует паттерн и копирует JSON в буфер">📤 ЭКСПОРТ</button>
+    <button id="importBtn" title="заменить паттерн из JSON выше">📥 ИМПОРТ</button>
     <button onclick="document.getElementById('ioArea').value=''">ОЧИСТИТЬ</button>
     <span class="status" id="status"></span>
   </div>
@@ -1830,6 +1859,130 @@ var FREE_SLOTS = 12;
 var FREE_HEAD_H = 14;
 var FREE_PPS = 80;
 
+var undoHistory = {
+  stack: [],
+  index: -1,
+  maxSize: 50,
+  recording: true,
+};
+
+function snapshotState() {
+  return {
+    bpm: state.bpm,
+    steps: state.steps,
+    events: JSON.parse(JSON.stringify(state.events)),
+    tracks: state.tracks.map(function(t) {
+      return {
+        id: t.id, name: t.name, cat: t.cat,
+        vol: t.vol, pan: t.pan, pitch: t.pitch,
+        octave: t.octave || 0,
+        muted: t.muted, solo: t.solo,
+        color: t.color, expanded: t.expanded || false,
+        steps: t.steps.slice(),
+        pitches: t.pitches ? t.pitches.slice() : null,
+      };
+    }),
+  };
+}
+
+function restoreState(snap) {
+  state.bpm = snap.bpm;
+  state.steps = snap.steps;
+  state.events = JSON.parse(JSON.stringify(snap.events));
+  state.tracks = [];
+  for (var i = 0; i < snap.tracks.length; i++) {
+    var ts = snap.tracks[i];
+    var t = makeTrack(ts.id);
+    if (!t) continue;
+    t.vol = ts.vol;
+    t.pan = ts.pan;
+    t.pitch = ts.pitch;
+    t.octave = ts.octave || 0;
+    t.muted = ts.muted;
+    t.solo = ts.solo;
+    t.expanded = ts.expanded || false;
+    t.steps = ts.steps.slice();
+    t.pitches = ts.pitches ? ts.pitches.slice() : new Array(state.steps).fill(null);
+    state.tracks.push(t);
+  }
+  var bpmInput = document.getElementById('bpmInput');
+  if (bpmInput) bpmInput.value = state.bpm;
+  var stepsInput = document.getElementById('stepsInput');
+  if (stepsInput) stepsInput.value = state.steps;
+  updatePresetHighlight();
+  renderGrid();
+  renderLibrary();
+  if (document.getElementById('beatboxPanel')) bbUpdateRouting();
+}
+
+function pushHistory() {
+  if (!undoHistory.recording) return;
+  if (undoHistory.index < undoHistory.stack.length - 1) {
+    undoHistory.stack = undoHistory.stack.slice(0, undoHistory.index + 1);
+  }
+  undoHistory.stack.push(snapshotState());
+  if (undoHistory.stack.length > undoHistory.maxSize) {
+    undoHistory.stack.shift();
+  }
+  undoHistory.index = undoHistory.stack.length - 1;
+  updateUndoRedoBtns();
+}
+
+function scheduleHistory() {
+  if (!undoHistory.recording) return;
+  pushHistory();
+}
+
+function undo() {
+  if (undoHistory.index <= 0) return;
+  undoHistory.index--;
+  undoHistory.recording = false;
+  restoreState(undoHistory.stack[undoHistory.index]);
+  undoHistory.recording = true;
+  updateUndoRedoBtns();
+  setStatus('\u21b6 \u041e\u0442\u043c\u0435\u043d\u0435\u043d\u043e');
+}
+
+function redo() {
+  if (undoHistory.index >= undoHistory.stack.length - 1) return;
+  undoHistory.index++;
+  undoHistory.recording = false;
+  restoreState(undoHistory.stack[undoHistory.index]);
+  undoHistory.recording = true;
+  updateUndoRedoBtns();
+  setStatus('\u21b7 \u041f\u043e\u0432\u0442\u043e\u0440\u0435\u043d\u043e');
+}
+
+function updateUndoRedoBtns() {
+  var ub = document.getElementById('undoBtn');
+  var rb = document.getElementById('redoBtn');
+  if (ub) ub.disabled = undoHistory.index <= 0;
+  if (rb) rb.disabled = undoHistory.index >= undoHistory.stack.length - 1;
+}
+
+var _undoBtn = document.getElementById('undoBtn');
+if (_undoBtn) _undoBtn.onclick = function() { undo(); };
+var _redoBtn = document.getElementById('redoBtn');
+
+function handleUndoRedoKeys(e) {
+  var target = e.target;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
+  if (!(e.ctrlKey || e.metaKey)) return;
+  if (e.key === 'z' || e.key === 'Z') {
+    e.preventDefault();
+    if (e.shiftKey) redo(); else undo();
+    return;
+  }
+  if (e.key === 'y' || e.key === 'Y') {
+    e.preventDefault();
+    redo();
+    return;
+  }
+}
+document.addEventListener('keydown', handleUndoRedoKeys, true);
+
+if (_redoBtn) _redoBtn.onclick = function() { redo(); };
+
 function freeIsMelodic(cat) {
   return cat === 'bass' || cat === 'lead' || cat === 'pad' || cat === 'chord' || cat === 'mallet';
 }
@@ -1899,7 +2052,7 @@ function makeTrack(defId) {
   };
   return {
     id: defId, name: name, cat: cat, synth: wrappedSynth,
-    vol: 0.6, pan: 0, pitch: 1, muted: false, solo: false,
+    vol: 0.6, pan: 0, pitch: 1, octave: 0, muted: false, solo: false,
     color: catColor(cat), expanded: false,
     steps: new Array(state.steps).fill(0),
     pitches: new Array(state.steps).fill(null),
@@ -1976,9 +2129,14 @@ function previewTrack(track, sIdx) {
   if (!track) return;
   initAudio();
   if (AC.state === 'suspended') AC.resume();
-  var pitch = track.pitch;
+  var pitch;
+  var octMul = trackOctMul(track);
   if (sIdx != null && track.pitches && track.pitches[sIdx] != null) {
-    pitch = track.pitches[sIdx];
+    pitch = track.pitches[sIdx] * octMul;
+  } else if (isMelodicTrack(track)) {
+    pitch = octMul;
+  } else {
+    pitch = track.pitch;
   }
   try {
     track.synth(AC.currentTime + 0.015, { vol: track.vol, pan: track.pan, pitch: pitch });
@@ -1999,6 +2157,12 @@ function isMelodicTrack(track) {
   if (!track) return false;
   var c = track.cat;
   return c === 'bass' || c === 'lead' || c === 'pad' || c === 'chord' || c === 'mallet';
+}
+
+function trackOctMul(track) {
+  if (!track) return 1;
+  if (isMelodicTrack(track)) return Math.pow(2, track.octave || 0);
+  return track.pitch || 1;
 }
 
 function rowToPitch(r) {
@@ -2025,22 +2189,19 @@ function onPianoRollClick(e) {
   var t0 = sIdx * sd;
   var t1 = t0 + sd;
 
-  // ищем событие на этом шаге С ТОЙ ЖЕ НОТОЙ (погрешность < 0.5 полутона)
   var sameNote = null;
   for (var i = 0; i < state.events.length; i++) {
     var ev = state.events[i];
     if (ev.trackIdx !== tIdx) continue;
     if (ev.time < t0 || ev.time >= t1) continue;
-    var p = ev.pitch != null ? ev.pitch : track.pitch;
+    var p = ev.pitch != null ? ev.pitch : 1;
     var diff = Math.abs(12 * Math.log2(p / targetMul));
     if (diff < 0.5) { sameNote = ev; break; }
   }
 
   if (sameNote) {
-    // та же нота — удаляем только её
     state.events = state.events.filter(function(x) { return x !== sameNote; });
   } else {
-    // другой ноты на этом шаге нет — добавляем новую (аккорд растёт)
     state.events.push({
       id: newEventId(),
       trackIdx: tIdx,
@@ -2051,7 +2212,8 @@ function onPianoRollClick(e) {
   }
   eventsToSteps();
   renderGrid();
-  try { track.synth(AC.currentTime + 0.001, { vol: track.vol, pan: track.pan, pitch: targetMul }); } catch (err) {}
+  var previewPitch = targetMul * trackOctMul(track);
+  try { track.synth(AC.currentTime + 0.001, { vol: track.vol, pan: track.pan, pitch: previewPitch }); } catch (err) {}
 }
 
 function onTrackInfoPointerDown(e) {
@@ -2277,6 +2439,22 @@ function renderGrid() {
       main.appendChild(pBtn);
     }
 
+    if (track.cat === 'hat') {
+      const fBtn = document.createElement('button');
+      fBtn.className = 'btn-sm' + (track.fillMode ? ' on' : '');
+      fBtn.textContent = '\u2261';
+      fBtn.title = 'режим заполнения: 4 хэта на ячейку';
+      fBtn.style.color = track.fillMode ? '#000' : '#4dffb0';
+      fBtn.style.borderColor = track.fillMode ? '#4dffb0' : '#4dffb0';
+      fBtn.style.background = track.fillMode ? '#4dffb0' : 'transparent';
+      fBtn.onclick = function() {
+        track.fillMode = !track.fillMode;
+        renderGrid();
+        setStatus(track.fillMode ? 'Fill: клик по ячейке = 4 хэта' : 'Fill выкл');
+      };
+      main.appendChild(fBtn);
+    }
+
     const dBtn = document.createElement('button');
     dBtn.className = 'btn-del';
     dBtn.textContent = '×';
@@ -2295,7 +2473,12 @@ function renderGrid() {
     knobs.className = 'info-knobs';
     knobs.appendChild(makeKnob('ГРОМК', track.vol, 0, 1, 0.05, v => { track.vol = v; }));
     knobs.appendChild(makeKnob('ПАНО', track.pan, -1, 1, 0.1, v => { track.pan = v; }));
-    knobs.appendChild(makeKnob('ТОН', track.pitch, 0.5, 2, 0.05, v => { track.pitch = v; }));
+    if (isMelodicTrack(track)) {
+      if (track.octave == null) track.octave = 0;
+      knobs.appendChild(makeOctKnob(track));
+    } else {
+      knobs.appendChild(makeKnob('ТОН', track.pitch, 0.5, 2, 0.05, v => { track.pitch = v; }));
+    }
     info.appendChild(knobs);
 
     if (state.tracks.length > 1) {
@@ -2376,7 +2559,7 @@ function renderGrid() {
       clip.style.background = track.color;
       clip.style.color = '#000';
       if (isPiano) {
-        var pv = ev.pitch != null ? ev.pitch : track.pitch;
+        var pv = ev.pitch != null ? ev.pitch : 1;
         var rowIdx = pitchToRow(pv);
         clip.style.top = (rowIdx * stepSize) + 'px';
         clip.style.height = (stepSize - 1) + 'px';
@@ -2401,18 +2584,48 @@ function renderGrid() {
 
   var addRow = document.createElement('div');
   addRow.className = 'seq-row add-row';
-  var addInfo = document.createElement('div');
-  addInfo.className = 'track-info';
-  addInfo.style.background = 'transparent';
-  addInfo.style.boxShadow = 'none';
-  addInfo.style.padding = '4px';
+
+  var addBar = document.createElement('div');
+  addBar.className = 'add-bar';
+
   var addBtn = document.createElement('button');
   addBtn.className = 'add-instrument-btn';
   addBtn.textContent = '+';
   addBtn.title = 'добавить инструмент';
   addBtn.onclick = function () { openLibrary(); };
-  addInfo.appendChild(addBtn);
-  addRow.appendChild(addInfo);
+  addBar.appendChild(addBtn);
+
+  var moveBtn = document.createElement('button');
+  moveBtn.id = 'trackMoveBtn';
+  moveBtn.className = 'add-row-btn';
+  moveBtn.textContent = '\u21c5 ДВИГ';
+  moveBtn.title = 'режим перемещения дорожек';
+  if (trackMoveMode) moveBtn.classList.add('active');
+  moveBtn.onclick = function () {
+    setTrackMoveMode(!trackMoveMode);
+    setStatus(trackMoveMode ? 'Тащи дорожки за панель слева' : 'Режим перемещения выкл');
+  };
+  addBar.appendChild(moveBtn);
+
+  var compactBtn = document.createElement('button');
+  compactBtn.id = 'compactBtn';
+  compactBtn.className = 'add-row-btn';
+  compactBtn.textContent = state.compact ? '\u229e РАЗВ' : '\u229f СВЕРН';
+  compactBtn.title = state.compact ? 'развернуть панели дорожек' : 'свернуть панели дорожек';
+  if (state.compact) compactBtn.classList.add('active');
+  compactBtn.onclick = toggleCompact;
+  addBar.appendChild(compactBtn);
+
+  var followBtn = document.createElement('button');
+  followBtn.id = 'followBtn';
+  followBtn.className = 'add-row-btn';
+  followBtn.textContent = '\u25c9 СЛЕЖ';
+  followBtn.title = 'авто-скролл за playhead';
+  if (state.follow) followBtn.classList.add('active');
+  followBtn.onclick = toggleFollow;
+  addBar.appendChild(followBtn);
+
+  addRow.appendChild(addBar);
   inner.appendChild(addRow);
 
   const ph = document.createElement('div');
@@ -2487,6 +2700,39 @@ function onStepClick(e) {
   var sd = stepDur();
   var t0 = sIdx * sd;
   var t1 = t0 + sd;
+
+  // Режим fill: клик по ячейке заполняет её 4 короткими нотами / очищает
+  if (track.fillMode && track.cat === 'hat') {
+    var inRange = state.events.filter(function(ev) {
+      return ev.trackIdx === tIdx && ev.time >= t0 && ev.time < t1;
+    });
+    if (inRange.length >= 4) {
+      // Уже заполнено — очистить
+      state.events = state.events.filter(function(ev) {
+        return !(ev.trackIdx === tIdx && ev.time >= t0 && ev.time < t1);
+      });
+    } else {
+      // Очистить то что было и поставить 4 хэта
+      state.events = state.events.filter(function(ev) {
+        return !(ev.trackIdx === tIdx && ev.time >= t0 && ev.time < t1);
+      });
+      var sub = sd / 4;
+      for (var k = 0; k < 4; k++) {
+        state.events.push({
+          id: newEventId(),
+          trackIdx: tIdx,
+          time: t0 + k * sub,
+          dur: sub * 0.85,
+          pitch: 1,
+        });
+      }
+      previewTrack(track, null);
+    }
+    eventsToSteps();
+    renderGrid();
+    return;
+  }
+
   var existing = null;
   for (var i = 0; i < state.events.length; i++) {
     var ev = state.events[i];
@@ -2503,7 +2749,7 @@ function onStepClick(e) {
       trackIdx: tIdx,
       time: t0,
       dur: sd * 0.9,
-      pitch: track.pitch,
+      pitch: 1,
     });
     previewTrack(track, null);
   }
@@ -3040,6 +3286,29 @@ function onClipPointerDown(e) {
   document.addEventListener('pointercancel', onUp);
 }
 
+function makeOctKnob(track) {
+  var w = document.createElement('div');
+  w.className = 'knob-group';
+  var lbl = document.createElement('span');
+  function fmt(v) {
+    if (v > 0) return 'ОКТ +' + v;
+    return 'ОКТ ' + v;
+  }
+  lbl.textContent = fmt(track.octave);
+  w.appendChild(lbl);
+  var inp = document.createElement('input');
+  inp.type = 'range';
+  inp.min = -2; inp.max = 2; inp.step = 1;
+  inp.value = track.octave;
+  inp.oninput = function() {
+    var v = parseInt(inp.value, 10);
+    track.octave = v;
+    lbl.textContent = fmt(v);
+  };
+  w.appendChild(inp);
+  return w;
+}
+
 function makeKnob(label, val, min, max, step, onChange) {
   const w = document.createElement('div');
   w.className = 'knob-group';
@@ -3138,7 +3407,7 @@ function stepsToEvents() {
   state.tracks.forEach(function(track, tIdx) {
     track.steps.forEach(function(on, sIdx) {
       if (!on) return;
-      var pitch = track.pitch;
+      var pitch = 1;
       if (track.pitches && track.pitches[sIdx] != null) pitch = track.pitches[sIdx];
       result.push({
         id: 'e' + Date.now() + '_' + tIdx + '_' + sIdx,
@@ -3581,7 +3850,7 @@ function playFreeEvent(ev, when) {
     t += (Math.random() - 0.5) * 0.012 * h;
     vol = Math.max(0, vol * (1 + (Math.random() - 0.5) * 0.35 * h));
   }
-  var pitch = ev.pitch != null ? ev.pitch : track.pitch;
+  var pitch = (ev.pitch != null ? ev.pitch : 1) * trackOctMul(track);
   try { track.synth(t, { vol: vol, pan: track.pan, pitch: pitch, dur: ev.dur }); } catch (e) {}
 }
 
@@ -3675,7 +3944,7 @@ function playStep(sIdx, time) {
       t += (Math.random() - 0.5) * 0.012 * h;
       vol = Math.max(0, vol * (1 + (Math.random() - 0.5) * 0.35 * h));
     }
-    var pitch = ev.pitch != null ? ev.pitch : track.pitch;
+    var pitch = (ev.pitch != null ? ev.pitch : 1) * trackOctMul(track);
     try { track.synth(t, { vol: vol, pan: track.pan, pitch: pitch, dur: ev.dur }); } catch (err) {}
   }
 }
@@ -3802,22 +4071,26 @@ document.getElementById('zoomSlider').oninput = e => {
     positionPlayhead();
   });
 };
-document.getElementById('compactBtn').onclick = () => {
+function toggleCompact() {
   state.compact = !state.compact;
   document.documentElement.classList.toggle('compact', state.compact);
-  const btn = document.getElementById('compactBtn');
-  btn.classList.toggle('active', state.compact);
-  btn.textContent = state.compact ? '⊞ РАЗВЕРНУТЬ' : '⊟ СВЕРНУТЬ';
+  var btn = document.getElementById('compactBtn');
+  if (btn) {
+    btn.classList.toggle('active', state.compact);
+    btn.textContent = state.compact ? '\u229e РАЗВ' : '\u229f СВЕРН';
+    btn.title = state.compact ? 'развернуть панели дорожек' : 'свернуть панели дорожек';
+  }
   requestAnimationFrame(positionPlayhead);
-};
-document.getElementById('followBtn').onclick = () => {
+}
+function toggleFollow() {
   state.follow = !state.follow;
-  document.getElementById('followBtn').classList.toggle('active', state.follow);
+  var btn = document.getElementById('followBtn');
+  if (btn) btn.classList.toggle('active', state.follow);
   if (state.follow) {
     const sc = document.getElementById('seq-scroll');
     followCurrent = sc.scrollLeft; followTarget = sc.scrollLeft;
   }
-};
+}
 
 const scEl = document.getElementById('seq-scroll');
 scEl.addEventListener('pointerdown', (e) => {
@@ -3850,6 +4123,30 @@ document.getElementById('clearBtn').onclick = () => {
 
 
 
+function copyToClipboard(text, onSuccess) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onSuccess, function() {
+      fallbackCopy(text, onSuccess);
+    });
+  } else {
+    fallbackCopy(text, onSuccess);
+  }
+}
+function fallbackCopy(text, onSuccess) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  ta.style.top = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    var ok = document.execCommand('copy');
+    if (ok && onSuccess) onSuccess();
+  } catch (e) {}
+  document.body.removeChild(ta);
+}
 document.getElementById('exportBtn').onclick = () => {
   const data = {
     _version: 2, bpm: state.bpm, steps: state.steps, masterVol: state.masterVol,
@@ -3859,12 +4156,16 @@ document.getElementById('exportBtn').onclick = () => {
     tracks: state.tracks.map(t => ({
       id: t.id, name: t.name,
       vol: t.vol, pan: t.pan, pitch: t.pitch,
+      octave: t.octave || 0,
       muted: t.muted, solo: t.solo, steps: t.steps,
       pitches: t.pitches || null,
     })),
   };
-  document.getElementById('ioArea').value = JSON.stringify(data);
-  setStatus('Экспортировано');
+  var json = JSON.stringify(data);
+  document.getElementById('ioArea').value = json;
+  copyToClipboard(json, function () {
+    setStatus('Экспорт → в буфер');
+  });
 };
 document.getElementById('importBtn').onclick = () => {
   const txt = document.getElementById('ioArea').value.trim();
@@ -3888,10 +4189,12 @@ document.getElementById('importBtn').onclick = () => {
           if (t.pitches[pi] != null) pitches[pi] = t.pitches[pi];
         }
       }
+      var isMel = (cat === 'bass' || cat === 'lead' || cat === 'pad' || cat === 'chord' || cat === 'mallet');
+      var oct = isMel ? (t.octave != null ? t.octave : 0) : 0;
       return {
         id: t.id, name: name, cat: cat, synth: mk(params),
         vol: t.vol != null ? t.vol : 0.6,
-        pan: t.pan || 0, pitch: t.pitch || 1,
+        pan: t.pan || 0, pitch: t.pitch || 1, octave: oct,
         muted: !!t.muted, solo: !!t.solo,
         color: catColor(cat),
         steps: next,
@@ -3902,26 +4205,28 @@ document.getElementById('importBtn').onclick = () => {
     document.getElementById('stepsInput').value = state.steps;
     if (masterGain) masterGain.gain.value = state.masterVol;
 
-    if (data.mode === 'free' && Array.isArray(data.events)) {
-      state.mode = 'free';
+    state.mode = 'step';
+    if (Array.isArray(data.events) && data.events.length > 0) {
       state.events = data.events.slice();
-      state.freeLength = data.freeLength || 16;
-      var mb = document.getElementById('modeBtn');
-      if (mb) { mb.textContent = '▦ СВОБОДНО'; mb.classList.add('active'); }
-      var zr = document.getElementById('freeZoomRow');
-      if (zr) zr.style.display = 'flex';
-      var lr = document.getElementById('freeLenRow');
-      if (lr) lr.style.display = 'flex';
     } else {
-      state.mode = 'step';
       state.events = [];
-      var mb2 = document.getElementById('modeBtn');
-      if (mb2) { mb2.textContent = '◫ СЕТКА'; mb2.classList.remove('active'); }
-      var zr2 = document.getElementById('freeZoomRow');
-      if (zr2) zr2.style.display = 'none';
-      var lr2 = document.getElementById('freeLenRow');
-      if (lr2) lr2.style.display = 'none';
+      state.tracks.forEach(function(track, tIdx) {
+        var sd = stepDur();
+        track.steps.forEach(function(on, sIdx) {
+          if (!on) return;
+          var p = 1;
+          if (track.pitches && track.pitches[sIdx] != null) p = track.pitches[sIdx];
+          state.events.push({
+            id: 'e' + Date.now() + '_' + tIdx + '_' + sIdx,
+            trackIdx: tIdx,
+            time: sIdx * sd,
+            dur: sd * 0.8,
+            pitch: p,
+          });
+        });
+      });
     }
+    eventsToSteps();
 
     updatePresetHighlight();
     renderGrid();
@@ -4566,7 +4871,7 @@ function bbPlace(type, isMic, pitch, forcedStep) {
   var t0 = s * sd;
   var t1 = t0 + sd;
 
-  var playPitch = track.pitch;
+  var playPitch = 1;
   var noteLabel = '';
 
   if ((type === 'bass' || type === 'melody') && pitch && pitch > 60 && pitch < 1200) {
@@ -4617,7 +4922,9 @@ function bbPlace(type, isMic, pitch, forcedStep) {
     }
   }
 
-  try { track.synth(AC.currentTime + 0.001, { vol: track.vol, pan: track.pan, pitch: playPitch }); } catch (e) {}
+  var previewMul = (type === 'bass' || type === 'melody') && track.pitch && !isMelodicTrack(track)
+    ? track.pitch : trackOctMul(track);
+  try { track.synth(AC.currentTime + 0.001, { vol: track.vol, pan: track.pan, pitch: playPitch * previewMul }); } catch (e) {}
 
   var st = document.getElementById('bbStatus');
   if (st) {
@@ -4850,6 +5157,14 @@ renderGrid();
 renderLibrary();
 setStatus('Готово');
 
+var _origRenderGrid = renderGrid;
+renderGrid = function() {
+  _origRenderGrid();
+  scheduleHistory();
+};
+updateUndoRedoBtns();
+pushHistory();
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initHelp);
 } else {
@@ -4988,6 +5303,9 @@ function initHelp() {
         <p>Смена BPM на ходу: уже звучащая нота доигрывает в старом темпе (~0.1 сек), следующие идут в новом. Ранее поставленные события пересчитываются автоматически — ничего не съезжает.</p>
         <h4>🎵 МЕТРО</h4>
         <p>Метроном. Акцент на первой доле бара (1600 Гц), тише на остальных долях (1000 Гц).</p>
+        <h4>ОТМЕНА / ПОВТОР</h4>
+        <p>Кнопки <b>↶ ОТМЕНА</b> и <b>↷ ПОВТОР</b> в нижней строке топбара. Или <span class="kbd">Ctrl+Z</span> — отменить, <span class="kbd">Ctrl+Shift+Z</span> или <span class="kbd">Ctrl+Y</span> — повторить.</p>
+        <p>История на 50 шагов. Снимок берётся на каждое действие — каждый клик, каждое перемещение клипа, каждый импорт.</p>
         <h4>Другие клавиши</h4>
         <ul>
           <li><span class="kbd">←</span> <span class="kbd">→</span> — сдвиг playhead на шаг. <span class="kbd">Shift</span> = бит, <span class="kbd">Ctrl</span> = бар</li>
@@ -5034,7 +5352,7 @@ function initHelp() {
         <ul>
           <li>Пусто → ставит ноту в этот шаг</li>
           <li>Уже есть → убирает ноту</li>
-          <li>В мелодичной дорожке (BASS/LEAD/PAD/CHORD/MALLET) ставит ноту с базовым питчем дорожки</li>
+          <li>В мелодичной дорожке (BASS/LEAD/PAD/CHORD/MALLET) ставит ноту базовой высоты (A). Общая высота дорожки сдвигается ползунком ОКТ</li>
         </ul>
         <h4>Разворот в piano roll</h4>
         <p>Кнопка <b>♪</b> в шапке мелодичной дорожки (BASS / LEAD / PAD / CHORD / MALLET). Разворачивает дорожку в piano roll — 12 полутонов по вертикали. Повторное нажатие (▾) сворачивает обратно.</p>
@@ -5085,11 +5403,12 @@ function initHelp() {
         <p>Играет только эта дорожка, все остальные глушатся. Если несколько solo — играют все solo.</p>
         <h4>× — удалить дорожку</h4>
         <p>Удаляет дорожку и все её события.</p>
-        <h4>ГРОМК / ПАНО / ТОН</h4>
+        <h4>ГРОМК / ПАНО / ТОН (ОКТ)</h4>
         <ul>
           <li><b>ГРОМК</b> — общая громкость дорожки, 0..1</li>
           <li><b>ПАНО</b> — стерео-позиция, -1 (лево) .. +1 (право)</li>
-          <li><b>ТОН</b> — общий питч дорожки, 0.5..2</li>
+          <li><b>ТОН</b> — общий питч ударной дорожки, 0.5..2. Умножается на высоту каждой ноты</li>
+          <li><b>ОКТ</b> — транспозиция всей мелодийной дорожки в октавах, -2..+2. Все ноты играют на N октав выше/ниже, но в piano roll показаны как есть. Рядом с ползунком — текущее значение: <code>ОКТ 0</code>, <code>ОКТ +1</code>, <code>ОКТ −2</code>. Ноль — как поставил. Ударные дорожки по-прежнему имеют ползунок ТОН (множитель 0.5..2)</li>
         </ul>
         <h4>1-9</h4>
         <p>Быстрый mute/unmute дорожек по счёту сверху вниз.</p>
