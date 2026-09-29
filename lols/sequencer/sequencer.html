@@ -577,7 +577,7 @@
     <button id="bbMuteSeq" title="глушит звук секвенсора чтобы не уходил в мик">🔊 ЗВУК</button>
     <label title="автоматически глушить при старте мика"><input type="checkbox" id="bbAutoMute" checked> авто-мьют</label>
     <label>ЧУВСТВ <input type="range" id="bbSens" min="0.5" max="4" step="0.1" value="1.5"></label>
-    <label>ПОРОГ <input type="range" id="bbThresh" min="0.005" max="0.15" step="0.005" value="0.04"></label>
+    <label>ПОРОГ <input type="range" id="bbThresh" min="0" max="0.15" step="0.005" value="0"></label>
     <span id="bbMeter">░░░░░░░░░░</span>
   </div>
   <div class="bb-row">
@@ -3798,7 +3798,7 @@ var bb = {
   lastOnset: 0,
   noiseFloor: 0.008,
   sens: 1.5,
-  thresh: 0.04,
+  thresh: 0,
   routing: { kick: null, snare: null, hat: null, bass: null, melody: null },
   gamma: 'minor',
   noteTracking: false,
