@@ -57,13 +57,20 @@
   #playhead .ph-bar { position: absolute; top: 0; bottom: 0; left: 50%;
                       transform: translateX(-50%); width: 3px; background: #4dffb0;
                       box-shadow: 0 0 8px #4dffb0, 0 0 16px #4dffb0;
-                      border-radius: 1.5px; pointer-events: auto;
-                      cursor: ew-resize; touch-action: none; }
-  #playhead .ph-bar::before { content: ''; position: absolute; top: 0; bottom: 0; left: -10px; right: -10px; }
+                      border-radius: 1.5px; pointer-events: none; }
   #playhead .ph-head { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-                       width: 9px; height: 9px; background: #4dffb0;
+                       width: 14px; height: 14px; background: #4dffb0;
                        clip-path: polygon(0 0, 100% 0, 50% 100%);
-                       filter: drop-shadow(0 0 4px #4dffb0); pointer-events: none; }
+                       filter: drop-shadow(0 0 4px #4dffb0); pointer-events: auto;
+                       cursor: ew-resize; touch-action: none; }
+  #playhead .ph-head::before { content: ''; position: absolute; top: -6px; left: -12px; right: -12px; bottom: -6px; }
+
+  .seq-row.dragging-track { z-index: 100; pointer-events: none; }
+  .seq-row.dragging-track .track-info {
+    background: rgba(177,109,255,0.22);
+    box-shadow: 0 0 20px #b16dff;
+  }
+  .seq-row.drop-target { outline: 2px dashed #4dffb0; outline-offset: -2px; }
 
   .seq-row { display: flex; align-items: stretch; border-bottom: 1px solid #1a1524; }
   .seq-row:last-child { border-bottom: none; }
@@ -84,6 +91,37 @@
                        font-weight: 900; cursor: pointer; }
   .info-main .btn-sm.on { color: #ff80a0; border-color: #ff3060; background: rgba(255,48,96,0.15); }
   .info-main .btn-sm.solo.on { color: #4dffb0; border-color: #4dffb0; background: rgba(77,255,176,0.15); }
+  body.track-move-mode .track-info {
+    cursor: grab;
+    background: rgba(177,109,255,0.10);
+    touch-action: none !important;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+  }
+  body.track-move-mode .track-info:active { cursor: grabbing; background: rgba(177,109,255,0.20); }
+  body.track-move-mode .track-info * {
+    touch-action: none !important;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  body.track-move-mode .track-info .info-main .btn-sm,
+  body.track-move-mode .track-info .info-main .btn-del,
+  body.track-move-mode .track-info .info-knobs { display: none; }
+  body.track-move-mode .track-info .info-main { height: 28px; }
+  body.track-move-mode .track-info .info-main .name {
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-align: center;
+    width: 100%;
+  }
+  body.track-move-mode .track-info .info-main .name::before {
+    content: '\2630  ';
+    color: #b16dff;
+    font-size: 12px;
+  }
   .info-main .btn-del { width: 22px; height: 22px; padding: 0; flex-shrink: 0;
                         background: transparent; color: #6a7a99; border: 1px solid #2a2a4a;
                         border-radius: 3px; font-family: inherit; font-size: 13px;
@@ -539,6 +577,7 @@
   <div class="row-group">
     <button id="randomBtn">РАНДОМ</button>
     <button id="selectModeBtn" class="tgl" title="режим выделения рамкой">▭ ВЫДЕЛИТЬ</button>
+    <button id="trackMoveBtn" class="tgl" title="режим перемещения дорожек">⇅ ДВИГАТЬ</button>
     <div class="clipboard-panel" id="clipboardPanel">
       <button id="btnCopy" class="primary">COPY</button>
       <button id="btnPaste" class="primary" disabled>PASTE</button>
@@ -1831,6 +1870,7 @@ var freeDragMoved = false;
 var nextStepTime = 0, schedulerTimer = null, rafId = null;
 var followTarget = 0, followCurrent = 0, followLocked = false, followUnlockAt = 0;
 var playheadDragging = false, playheadWasPlaying = false;
+var lastBase = 0;
 var freePlayStart = 0;
 var freeEventCursor = 0;
 var freeScheduled = [];
@@ -1922,8 +1962,10 @@ function setPlayhead(step, reschedule) {
   if (step === state.currentStep && !reschedule) { positionPlayhead(); return; }
   state.currentStep = step;
   if (state.playing && reschedule !== false && AC) {
+    var base = stepDur();
     nextStepTime = AC.currentTime + 0.05;
-    patternStartTime = nextStepTime - step * stepDur();
+    patternStartTime = nextStepTime - step * base;
+    lastBase = base;
   }
   positionPlayhead(step);
 }
@@ -2012,6 +2054,85 @@ function onPianoRollClick(e) {
   try { track.synth(AC.currentTime + 0.001, { vol: track.vol, pan: track.pan, pitch: targetMul }); } catch (err) {}
 }
 
+function onTrackInfoPointerDown(e) {
+  if (!trackMoveMode) return;
+  if (e.button != null && e.button !== 0) return;
+  if (e.target.closest('button')) return;
+  if (e.target.closest('input')) return;
+  var row = this.closest ? this.closest('.seq-row') : this.parentElement;
+  if (!row || !row.dataset || row.dataset.trackIdx == null) return;
+  var tIdx = parseInt(row.dataset.trackIdx, 10);
+  if (isNaN(tIdx)) return;
+  if (state.tracks.length < 2) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  var startY = e.clientY;
+  var targetIdx = tIdx;
+  var active = true;
+  var self = this;
+
+  row.classList.add('dragging-track');
+  if (navigator.vibrate) try { navigator.vibrate(20); } catch (err) {}
+  try { self.setPointerCapture(e.pointerId); } catch (err) {}
+
+  function onMove(me) {
+    if (!active) return;
+    var dy = me.clientY - startY;
+    row.style.transform = 'translateY(' + dy + 'px)';
+    var el = document.elementFromPoint(me.clientX, me.clientY);
+    if (!el) return;
+    var rowEl = el.closest ? el.closest('.seq-row[data-track-idx]') : null;
+    if (!rowEl) return;
+    var idx = parseInt(rowEl.dataset.trackIdx, 10);
+    if (isNaN(idx)) return;
+    targetIdx = idx;
+    document.querySelectorAll('.seq-row').forEach(function(r) {
+      r.classList.remove('drop-target');
+    });
+    if (targetIdx !== tIdx) rowEl.classList.add('drop-target');
+  }
+  function onUp(me) {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    if (!active) return;
+    active = false;
+    row.classList.remove('dragging-track');
+    row.style.transform = '';
+    document.querySelectorAll('.seq-row').forEach(function(r) {
+      r.classList.remove('drop-target');
+    });
+    if (targetIdx === tIdx) return;
+    if (targetIdx < 0 || targetIdx >= state.tracks.length) return;
+
+    var movedTrack = state.tracks.splice(tIdx, 1)[0];
+    state.tracks.splice(targetIdx, 0, movedTrack);
+
+    state.events.forEach(function(ev) {
+      if (ev.trackIdx === tIdx) ev.trackIdx = targetIdx;
+      else if (tIdx < targetIdx && ev.trackIdx > tIdx && ev.trackIdx <= targetIdx) ev.trackIdx--;
+      else if (tIdx > targetIdx && ev.trackIdx >= targetIdx && ev.trackIdx < tIdx) ev.trackIdx++;
+    });
+
+    Object.keys(bb.routing).forEach(function(k) {
+      var r = bb.routing[k];
+      if (r == null) return;
+      if (r === tIdx) bb.routing[k] = targetIdx;
+      else if (tIdx < targetIdx && r > tIdx && r <= targetIdx) bb.routing[k] = r - 1;
+      else if (tIdx > targetIdx && r >= targetIdx && r < tIdx) bb.routing[k] = r + 1;
+    });
+
+    renderGrid();
+    setStatus('Дорожка перемещена');
+  }
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+}
+
 function renderGrid() {
   const inner = document.getElementById('seq-inner');
   inner.innerHTML = '';
@@ -2066,11 +2187,82 @@ function renderGrid() {
     sBtn.onclick = () => { track.solo = !track.solo; renderGrid(); };
     main.appendChild(sBtn);
 
+    const gBtn = document.createElement('button');
+    gBtn.className = 'btn-sm drag-handle';
+    gBtn.textContent = '\u2630';
+    gBtn.title = 'двигать дорожку';
+    gBtn.addEventListener('pointerdown', function(e) {
+      if (e.button != null && e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var rowEl = gBtn.closest('.seq-row');
+      if (!rowEl) return;
+      var tIdx = parseInt(rowEl.dataset.trackIdx, 10);
+      if (isNaN(tIdx)) return;
+      if (state.tracks.length < 2) return;
+      var startX = e.clientX;
+      var startY = e.clientY;
+      var targetIdx = tIdx;
+      rowEl.classList.add('dragging-track');
+      if (navigator.vibrate) try { navigator.vibrate(20); } catch (err) {}
+      try { gBtn.setPointerCapture(e.pointerId); } catch (err) {}
+
+      function onMove(me) {
+        var dy = me.clientY - startY;
+        rowEl.style.transform = 'translateY(' + dy + 'px)';
+        var el = document.elementFromPoint(me.clientX, me.clientY);
+        if (!el) return;
+        var targetRow = el.closest ? el.closest('.seq-row[data-track-idx]') : null;
+        if (!targetRow) return;
+        var idx = parseInt(targetRow.dataset.trackIdx, 10);
+        if (isNaN(idx)) return;
+        targetIdx = idx;
+        document.querySelectorAll('.seq-row').forEach(function(r) {
+          r.classList.remove('drop-target');
+        });
+        targetRow.classList.add('drop-target');
+      }
+      function onUp(me) {
+        gBtn.removeEventListener('pointermove', onMove);
+        gBtn.removeEventListener('pointerup', onUp);
+        gBtn.removeEventListener('pointercancel', onUp);
+        try { gBtn.releasePointerCapture(e.pointerId); } catch (err) {}
+        rowEl.classList.remove('dragging-track');
+        rowEl.style.transform = '';
+        document.querySelectorAll('.seq-row').forEach(function(r) {
+          r.classList.remove('drop-target');
+        });
+        if (targetIdx === tIdx) return;
+        if (targetIdx < 0 || targetIdx >= state.tracks.length) return;
+        var moved = state.tracks.splice(tIdx, 1)[0];
+        state.tracks.splice(targetIdx, 0, moved);
+        state.events.forEach(function(ev) {
+          if (ev.trackIdx === tIdx) ev.trackIdx = targetIdx;
+          else if (tIdx < targetIdx && ev.trackIdx > tIdx && ev.trackIdx <= targetIdx) ev.trackIdx--;
+          else if (tIdx > targetIdx && ev.trackIdx >= targetIdx && ev.trackIdx < tIdx) ev.trackIdx++;
+        });
+        Object.keys(bb.routing).forEach(function(k) {
+          var r = bb.routing[k];
+          if (r == null) return;
+          if (r === tIdx) bb.routing[k] = targetIdx;
+          else if (tIdx < targetIdx && r > tIdx && r <= targetIdx) bb.routing[k] = r - 1;
+          else if (tIdx > targetIdx && r >= targetIdx && r < tIdx) bb.routing[k] = r + 1;
+        });
+        renderGrid();
+        setStatus('Дорожка перемещена');
+      }
+      gBtn.addEventListener('pointermove', onMove);
+      gBtn.addEventListener('pointerup', onUp);
+      gBtn.addEventListener('pointercancel', onUp);
+    });
     const nameEl = document.createElement('div');
     nameEl.className = 'name';
     nameEl.textContent = track.name;
     nameEl.style.cursor = 'pointer';
-    nameEl.onclick = () => previewTrack(track, null);
+    nameEl.onclick = function() {
+      if (trackMoveMode) return;
+      previewTrack(track, null);
+    };
     main.appendChild(nameEl);
 
     if (isMelodicTrack(track)) {
@@ -2105,6 +2297,10 @@ function renderGrid() {
     knobs.appendChild(makeKnob('ПАНО', track.pan, -1, 1, 0.1, v => { track.pan = v; }));
     knobs.appendChild(makeKnob('ТОН', track.pitch, 0.5, 2, 0.05, v => { track.pitch = v; }));
     info.appendChild(knobs);
+
+    if (state.tracks.length > 1) {
+      info.addEventListener('pointerdown', onTrackInfoPointerDown);
+    }
 
     row.appendChild(info);
 
@@ -2226,14 +2422,14 @@ function renderGrid() {
   ph.appendChild(head); ph.appendChild(bar);
   inner.appendChild(ph);
 
-  bar.addEventListener('pointerdown', e => {
+  head.addEventListener('pointerdown', e => {
     e.preventDefault(); e.stopPropagation();
     playheadDragging = true;
     playheadWasPlaying = state.playing;
     if (state.playing) stop(false);
-    try { bar.setPointerCapture(e.pointerId); } catch (err) {}
+    try { head.setPointerCapture(e.pointerId); } catch (err) {}
   });
-  bar.addEventListener('pointermove', e => {
+  head.addEventListener('pointermove', e => {
     if (!playheadDragging) return;
     e.preventDefault();
     const sc = document.getElementById('seq-scroll');
@@ -2248,11 +2444,11 @@ function renderGrid() {
   function endDrag(e) {
     if (!playheadDragging) return;
     playheadDragging = false;
-    try { bar.releasePointerCapture(e.pointerId); } catch (err) {}
+    try { head.releasePointerCapture(e.pointerId); } catch (err) {}
     if (playheadWasPlaying) start();
   }
-  bar.addEventListener('pointerup', endDrag);
-  bar.addEventListener('pointercancel', endDrag);
+  head.addEventListener('pointerup', endDrag);
+  head.addEventListener('pointercancel', endDrag);
 
   positionPlayhead();
   if (document.getElementById('beatboxPanel')) bbUpdateRouting();
@@ -2322,6 +2518,19 @@ var lasso = { timer: null, active: false, startX: 0, startY: 0, endX: 0, endY: 0
 var clipboardData = null;
 var pastePoint = null;
 var inPasteMode = false;
+
+var trackMoveMode = false;
+function setTrackMoveMode(on) {
+  trackMoveMode = !!on;
+  document.body.classList.toggle('track-move-mode', trackMoveMode);
+  var btn = document.getElementById('trackMoveBtn');
+  if (btn) btn.classList.toggle('active', trackMoveMode);
+}
+var _trackMoveBtn = document.getElementById('trackMoveBtn');
+if (_trackMoveBtn) _trackMoveBtn.onclick = function () {
+  setTrackMoveMode(!trackMoveMode);
+  setStatus(trackMoveMode ? 'Тащи дорожки за панель слева' : 'Режим перемещения выкл');
+};
 
 var selectMode = false;
 
@@ -3427,8 +3636,8 @@ function freeLoopRender() {
 function tick() {
   if (!state.playing) return;
   const ahead = AC.currentTime + 0.12;
-  const base = stepDur();
   while (nextStepTime < ahead) {
+    const base = stepDur();
     const sIdx = state.currentStep;
     let time = nextStepTime;
     if (state.swing > 0 && (sIdx % 2 === 1)) {
@@ -3437,6 +3646,7 @@ function tick() {
     playStep(sIdx, time);
     nextStepTime += base;
     state.currentStep = (state.currentStep + 1) % state.steps;
+    lastBase = base;
   }
   schedulerTimer = setTimeout(tick, 25);
 }
@@ -3473,11 +3683,11 @@ function playStep(sIdx, time) {
 function uiLoop() {
   if (!state.playing) { rafId = null; return; }
   var fracStep = state.currentStep;
-  if (patternStartTime > 0) {
+  if (patternStartTime > 0 && lastBase > 0) {
     var elapsed = AC.currentTime - patternStartTime;
     if (elapsed < 0) elapsed = 0;
-    var sd = stepDur();
-    var fs = (elapsed / sd) % state.steps;
+    var fs = elapsed / lastBase;
+    fs = fs % state.steps;
     if (fs < 0) fs += state.steps;
     fracStep = fs;
   }
@@ -3541,6 +3751,7 @@ function start() {
 
   nextStepTime = AC.currentTime + 0.05;
   patternStartTime = nextStepTime;
+  lastBase = stepDur();
   const sc = document.getElementById('seq-scroll');
   followCurrent = sc.scrollLeft; followTarget = sc.scrollLeft;
   tick();
@@ -3562,9 +3773,24 @@ document.getElementById('playStopBtn').onclick = function () {
   if (state.playing) stop(false); else start();
 };
 document.getElementById('rewindBtn').onclick = () => setPlayhead(0);
-document.getElementById('bpmInput').oninput = e => {
-  state.bpm = Math.max(40, Math.min(300, parseInt(e.target.value) || 120));
-};
+(function() {
+  var el = document.getElementById('bpmInput');
+  if (!el) return;
+  el.addEventListener('input', function() {
+    var v = parseInt(el.value);
+    if (isNaN(v)) return;
+    setBPM(v, true);
+  });
+  el.addEventListener('blur', function() {
+    var v = parseInt(el.value);
+    if (isNaN(v)) v = state.bpm;
+    setBPM(v);
+    el.value = state.bpm;
+  });
+  el.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { el.blur(); }
+  });
+})();
 document.getElementById('metroBtn').onclick = function () {
   state.metronome = !state.metronome;
   this.classList.toggle('active', state.metronome);
@@ -3736,10 +3962,34 @@ document.addEventListener('keydown', e => {
     return;
   }
 });
-function setBPM(n) {
-  n = Math.max(40, Math.min(300, n));
+function setBPM(n, silent) {
+  n = Math.max(40, Math.min(300, Math.floor(n)));
+  if (n === state.bpm) return;
+  var oldBase = stepDur();
   state.bpm = n;
-  document.getElementById('bpmInput').value = n;
+  var newBase = stepDur();
+  var ratio = newBase / oldBase;
+  if (ratio !== 1) {
+    for (var i = 0; i < state.events.length; i++) {
+      state.events[i].time *= ratio;
+      state.events[i].dur *= ratio;
+    }
+  }
+  if (state.playing && AC && patternStartTime > 0 && oldBase > 0) {
+    var now = AC.currentTime;
+    var frac = (now - patternStartTime) / oldBase;
+    patternStartTime = now - frac * newBase;
+    lastBase = newBase;
+    var curFrac = (now - patternStartTime) / newBase;
+    var nextIdx = Math.ceil(curFrac);
+    state.currentStep = nextIdx % state.steps;
+    nextStepTime = patternStartTime + nextIdx * newBase;
+  } else {
+    lastBase = newBase;
+  }
+  if (!silent) {
+    document.getElementById('bpmInput').value = n;
+  }
 }
 function clearCurrentStep() {
   const s = state.currentStep;
@@ -4735,6 +4985,7 @@ function initHelp() {
         <p>Возвращает playhead на первый шаг.</p>
         <h4>БПМ</h4>
         <p>Темп 40..300 BPM. Один шаг = 1/16 ноты. Стрелки <span class="kbd">↑</span> <span class="kbd">↓</span> — ±1, <span class="kbd">Shift</span>+стрелки — ±5.</p>
+        <p>Смена BPM на ходу: уже звучащая нота доигрывает в старом темпе (~0.1 сек), следующие идут в новом. Ранее поставленные события пересчитываются автоматически — ничего не съезжает.</p>
         <h4>🎵 МЕТРО</h4>
         <p>Метроном. Акцент на первой доле бара (1600 Гц), тише на остальных долях (1000 Гц).</p>
         <h4>Другие клавиши</h4>
@@ -4812,6 +5063,8 @@ function initHelp() {
       <div class="help-section-body">
         <h4>▭ ВЫДЕЛИТЬ</h4>
         <p>Режим рамки. Включаешь кнопку → тянешь мышью/пальцем по сетке → пунктирная рамка. Отпустил — все клипы, попавшие в рамку, выделились зелёным контуром.</p>
+        <h4>⇅ ДВИГАТЬ</h4>
+        <p>Режим перемещения дорожек. Включаешь кнопку — у дорожек слева скрываются кнопки (mute / solo / ×) и ползунки громкости, панель становится ручкой. Тапаешь и тянешь дорожку вверх/вниз — она переезжает. Целевая позиция обводится зелёным пунктиром. Клик по названию инструмента в этом режиме не проигрывает звук. Выключи — вернётся обычный вид.</p>
         <h4>COPY</h4>
         <p>Копирует выделенные клипы в буфер обмена (в памяти). После этого панель переключается на режим вставки.</p>
         <h4>PASTE</h4>
