@@ -568,7 +568,9 @@ function renderEvents() {
       ' dur=' + e.dur + 'ms' +
       ' [' + (e.trig || '?') + ']';
     if (e.matched) {
-      line += ' → ' + e.matched.toUpperCase() + ' / ' + e.matchedSyll + ' (d=' + e.matchDist + ')';
+      line += ' → ' + e.matched.toUpperCase() + ' / ' + e.matchedSyll;
+      if (e.matchedFromDuration) line += ' (dur)';
+      else if (e.matchDist) line += ' (d=' + e.matchDist + ')';
     }
     out.push(line);
   }
@@ -581,6 +583,23 @@ function updateTrig(trig) {
   if (trig === 'spec') { el.textContent = 'SPEC'; el.style.color = '#4dffb0'; }
   else if (trig === 'rms') { el.textContent = 'RMS'; el.style.color = '#4dc0ff'; }
   else { el.textContent = '-'; el.style.color = '#4dffb0'; }
+}
+
+function refineByDuration(evt) {
+  if (!evt || !evt.pitch || evt.pitch <= 0) return evt;
+  if (evt.dur < 400) return evt;
+  var type;
+  if (evt.pitch < 110) type = 'bass';
+  else if (evt.pitch < 700) type = 'melody';
+  else type = 'melody';
+  var syl = type === 'bass' ? 'боо' : 'ооо';
+  if (evt.matched !== type) {
+    evt.matched = type;
+    evt.matchedSyll = syl;
+    evt.matchedFromDuration = true;
+    evt.matchDist = 0;
+  }
+  return evt;
 }
 
 function loop() {
@@ -656,7 +675,9 @@ function loop() {
           evt.matched = tm.template.target;
           evt.matchedSyll = tm.template.syllable;
           evt.matchDist = Math.round(tm.dist);
+          evt.matchedFromTemplate = true;
         }
+        evt = refineByDuration(evt);
       }
       events.push(evt);
       renderEvents();
