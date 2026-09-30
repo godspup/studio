@@ -3,252 +3,537 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube → NotebookLM</title>
+<title>NotebookLM Bridge</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #8b949e; --dim: #6e7681;
+    --blue: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+  }
+  html, body { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #0d1117; color: #e6edf3; min-height: 100vh;
-    padding: 20px; line-height: 1.5;
+    background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   }
-  .container { max-width: 900px; margin: 0 auto; }
-  .back {
-    display: inline-block; color: #58a6ff; text-decoration: none;
-    font-size: 13px; margin-bottom: 16px;
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--bg2); flex-shrink: 0; gap: 8px;
   }
-  .back:hover { text-decoration: underline; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  .sub { color: #8b949e; font-size: 13px; margin-bottom: 24px; }
+  .brand { font-weight: 600; font-size: 14px; }
+  .brand a { color: var(--muted); text-decoration: none; margin-right: 12px; font-size: 12px; }
+  .brand a:hover { color: var(--blue); }
+  .api-status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .api-status::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+  }
+  .api-status.ok::before { background: var(--green); }
+  .api-status.checking::before { background: var(--yellow); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
 
-  .input-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  input[type=text], textarea {
-    flex: 1; min-width: 260px; padding: 11px 14px; border-radius: 8px;
-    border: 1px solid #30363d; background: #161b22; color: #e6edf3;
-    font-size: 14px; font-family: inherit; outline: none;
-    transition: border-color 0.15s;
+  .layout {
+    display: grid; grid-template-columns: 260px 1fr 320px;
+    flex: 1; min-height: 0; overflow: hidden;
   }
-  input[type=text]:focus, textarea:focus { border-color: #58a6ff; }
-  textarea { resize: vertical; min-height: 60px; }
+  aside {
+    background: var(--bg2); overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .sidebar-left { border-right: 1px solid var(--border); }
+  .sidebar-right { border-left: 1px solid var(--border); }
 
-  button {
-    padding: 11px 18px; border-radius: 8px; font-size: 14px;
-    border: 1px solid #30363d; background: #21262d; color: #e6edf3;
-    cursor: pointer; font-weight: 500; transition: all 0.15s;
-    white-space: nowrap;
+  .section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); padding: 12px 16px 6px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center;
   }
-  button:hover:not(:disabled) { background: #30363d; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.primary {
-    background: #238636; border-color: #238636; color: #fff;
+  .section-title button {
+    padding: 2px 8px; font-size: 11px; background: transparent;
+    border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
+    cursor: pointer;
   }
-  button.primary:hover:not(:disabled) { background: #2ea043; }
-  button.accent {
-    background: #1f6feb; border-color: #1f6feb; color: #fff;
-  }
-  button.accent:hover:not(:disabled) { background: #388bfd; }
+  .section-title button:hover { color: var(--text); border-color: var(--muted); }
 
-  .status {
-    font-size: 13px; color: #8b949e; min-height: 20px;
-    margin: 12px 0; display: flex; align-items: center; gap: 8px;
+  .btn-new {
+    margin: 8px 12px; padding: 8px 12px; border-radius: 6px;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; gap: 6px;
   }
-  .status.err { color: #f85149; }
-  .status.ok { color: #3fb950; }
-  .status.loading::before {
-    content: ""; width: 12px; height: 12px; border: 2px solid #30363d;
-    border-top-color: #58a6ff; border-radius: 50%;
-    animation: spin 0.8s linear infinite; display: inline-block;
+  .btn-new:hover { background: #30363d; }
+
+  .list { padding: 0 8px 12px; }
+  .list-item {
+    padding: 8px 10px; border-radius: 6px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 6px; font-size: 13px; transition: background 0.1s;
+  }
+  .list-item:hover { background: var(--bg3); }
+  .list-item.active { background: #1f6feb22; color: var(--blue); }
+  .list-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list-item-del {
+    opacity: 0; padding: 2px 6px; background: transparent; border: none;
+    color: var(--red); cursor: pointer; font-size: 14px;
+  }
+  .list-item:hover .list-item-del { opacity: 0.7; }
+  .list-item-del:hover { opacity: 1 !important; }
+
+  .chat {
+    display: flex; flex-direction: column; min-height: 0; background: var(--bg);
+  }
+  .chat-messages {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .empty {
+    color: var(--muted); text-align: center; margin: auto;
+    font-size: 13px; max-width: 400px; line-height: 1.7; padding: 20px;
+  }
+  .msg {
+    padding: 10px 14px; border-radius: 10px; max-width: 85%;
+    white-space: pre-wrap; word-wrap: break-word; font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .msg-user { background: #1f6feb; color: #fff; align-self: flex-end; }
+  .msg-bot { background: var(--bg2); border: 1px solid var(--border); align-self: flex-start; }
+  .msg-bot.loading { color: var(--muted); font-style: italic; }
+  .msg-bot.loading::after {
+    content: ""; display: inline-block; width: 10px; height: 10px;
+    border: 2px solid var(--border); border-top-color: var(--blue);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin-left: 8px; vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .panel { margin-top: 20px; display: none; }
-  .panel.show { display: block; }
-  .panel-header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 8px; flex-wrap: wrap; gap: 8px;
+  .chat-input {
+    display: flex; gap: 8px; padding: 12px 16px;
+    border-top: 1px solid var(--border); background: var(--bg2);
+    flex-shrink: 0;
   }
-  .panel-title { font-size: 13px; color: #8b949e; }
-  .actions { display: flex; gap: 6px; }
-  .actions button { padding: 6px 12px; font-size: 12px; }
+  .chat-input textarea {
+    flex: 1; resize: none; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 10px 12px; font-family: inherit;
+    font-size: 13.5px; min-height: 40px; max-height: 140px;
+    outline: none;
+  }
+  .chat-input textarea:focus { border-color: var(--blue); }
 
-  pre {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 16px; max-height: 500px; overflow: auto;
-    white-space: pre-wrap; font-size: 13px;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    line-height: 1.6;
+  button.primary {
+    padding: 10px 16px; background: var(--green); border: none;
+    border-radius: 6px; color: #fff; font-weight: 500; cursor: pointer;
+    font-size: 13px;
   }
-  .answer {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 16px; font-size: 14px; line-height: 1.7; white-space: pre-wrap;
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .source-item {
+    margin: 6px 12px; padding: 10px 12px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+    display: flex; flex-direction: column; gap: 6px;
   }
-  .meta { font-size: 12px; color: #6e7681; margin-bottom: 8px; }
+  .source-item .title {
+    font-weight: 500; overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    line-height: 1.4;
+  }
+  .source-item .meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--dim); gap: 6px;
+  }
+  .status-badge {
+    padding: 2px 8px; border-radius: 10px; font-size: 10px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .status-ready { background: #3fb95033; color: var(--green); }
+  .status-processing { background: #d2992233; color: var(--yellow); }
+  .status-failed { background: #f8514933; color: var(--red); }
+  .status-unknown { background: var(--bg3); color: var(--muted); }
+
+  .add-sources {
+    padding: 8px 12px 12px; margin-top: auto;
+    border-top: 1px solid var(--border); background: var(--bg2);
+  }
+  .add-sources textarea {
+    width: 100%; resize: vertical; min-height: 80px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); padding: 8px 10px;
+    font-family: inherit; font-size: 12px; outline: none;
+  }
+  .add-sources textarea:focus { border-color: var(--blue); }
+  .add-sources button {
+    width: 100%; margin-top: 8px; padding: 9px;
+    background: #1f6feb; border: none; border-radius: 6px;
+    color: #fff; cursor: pointer; font-size: 13px; font-weight: 500;
+  }
+  .add-sources button:hover:not(:disabled) { filter: brightness(1.1); }
+  .add-sources button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .add-sources .hint { font-size: 11px; color: var(--dim); margin-top: 6px; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    padding: 10px 20px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13px; z-index: 100;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { border-color: var(--red); color: var(--red); }
+  .toast.ok { border-color: var(--green); color: var(--green); }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    .sidebar-left { border-right: none; border-bottom: 1px solid var(--border); max-height: 180px; }
+    .sidebar-right { border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
+    .chat { min-height: 40vh; }
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <a class="back" href="../../">← назад в хаб</a>
-  <h1>🎬 YouTube → NotebookLM</h1>
-  <div class="sub">Вставь ссылку — получи транскрипт или задай вопрос по содержанию</div>
 
-  <div class="input-row">
-    <input id="url" type="text" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
+<div class="topbar">
+  <div class="brand">
+    <a href="../../">← хаб</a>
+    NotebookLM Bridge
   </div>
-
-  <div class="input-row">
-    <button class="primary" id="btn-transcript">📄 Получить транскрипт</button>
-    <button class="accent" id="btn-toggle-ask">💬 Задать вопрос</button>
-  </div>
-
-  <div id="ask-block" style="display:none; margin-bottom: 12px;">
-    <textarea id="question" placeholder="Например: о чём это видео? дай краткое саммари. выдели ключевые идеи."></textarea>
-    <div style="margin-top: 8px;">
-      <button class="accent" id="btn-ask">Отправить вопрос</button>
-    </div>
-  </div>
-
-  <div class="status" id="status"></div>
-
-  <div class="panel" id="panel-transcript">
-    <div class="panel-header">
-      <div class="panel-title" id="transcript-meta"></div>
-      <div class="actions">
-        <button id="btn-copy">📋 Копировать</button>
-        <button id="btn-download">⬇️ .txt</button>
-      </div>
-    </div>
-    <pre id="transcript-text"></pre>
-  </div>
-
-  <div class="panel" id="panel-answer">
-    <div class="panel-header">
-      <div class="panel-title">Ответ NotebookLM</div>
-      <div class="actions">
-        <button id="btn-copy-answer">📋 Копировать</button>
-      </div>
-    </div>
-    <div class="answer" id="answer-text"></div>
-  </div>
+  <div class="api-status checking" id="api-status">проверка API…</div>
 </div>
 
+<div class="layout">
+  <aside class="sidebar-left">
+    <div class="section-title">Блокноты</div>
+    <button class="btn-new" id="btn-new-notebook">➕ Новый блокнот</button>
+    <div class="list" id="notebooks-list"></div>
+  </aside>
+
+  <main class="chat">
+    <div class="chat-messages" id="chat-messages">
+      <div class="empty" id="chat-empty">
+        Выбери блокнот слева или создай новый.<br>
+        Добавь источники справа, потом задавай вопросы здесь.
+      </div>
+    </div>
+    <div class="chat-input">
+      <textarea id="question" placeholder="Задай вопрос по источникам..." rows="1" disabled></textarea>
+      <button class="primary" id="btn-ask" disabled>Отправить</button>
+    </div>
+  </main>
+
+  <aside class="sidebar-right">
+    <div class="section-title">
+      Источники
+      <button id="btn-refresh-sources" title="Обновить">🔄</button>
+    </div>
+    <div id="sources-list" style="flex:1; overflow-y:auto;">
+      <div class="empty" style="margin: 20px auto; font-size: 12px;">Выбери блокнот</div>
+    </div>
+    <div class="add-sources">
+      <textarea id="new-sources" placeholder="Вставь ссылки — каждая с новой строки.&#10;Поддерживаются YouTube-видео и целые плейлисты."></textarea>
+      <button id="btn-add-sources" disabled>Добавить все</button>
+      <div class="hint">Мультивыбор: разделяй переносом строки, пробелом или запятой</div>
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
-  // ⚠️ ЗАМЕНИ если сменишь VPS/домен
-  const API = "https://144.31.38.204.sslip.io";
+const API = "https://144.31.38.204.sslip.io";
+const LS_ACTIVE = "nlm_active_notebook";
+const LS_CHAT = (nid) => "nlm_chat_" + nid;
 
-  const $ = id => document.getElementById(id);
-  let lastTranscript = null;
-  let lastAnswer = null;
+const $ = id => document.getElementById(id);
+const state = {
+  notebooks: [],
+  activeNotebook: null,
+  sources: [],
+  messages: [],
+  sourcesPollTimer: null,
+  sourcesBusy: false,
+};
 
-  function setStatus(text, cls = "") {
-    $("status").className = "status " + cls;
-    $("status").textContent = text;
+function toast(msg, cls = "") {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show " + cls;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = "toast " + cls, 2500);
+}
+
+function setApiStatus(text, cls) {
+  const el = $("api-status");
+  el.className = "api-status " + (cls || "");
+  el.textContent = text;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const text = await r.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  if (!r.ok) throw new Error(data.detail || data.raw || `HTTP ${r.status}`);
+  return data;
+}
+
+async function checkHealth() {
+  setApiStatus("проверка API…", "checking");
+  try {
+    const h = await api("GET", "/api/health");
+    if (h.cli_available) setApiStatus("API ok", "ok");
+    else setApiStatus("CLI недоступен", "");
+  } catch (e) {
+    setApiStatus("API недоступен", "");
   }
+}
 
-  function setBusy(busy) {
-    ["btn-transcript", "btn-ask", "btn-toggle-ask"].forEach(id => {
-      $(id).disabled = busy;
+async function loadNotebooks() {
+  try {
+    const data = await api("GET", "/api/notebooks");
+    state.notebooks = data.notebooks || [];
+    renderNotebooks();
+  } catch (e) {
+    toast("Не могу получить список блокнотов: " + e.message, "err");
+  }
+}
+
+function renderNotebooks() {
+  const box = $("notebooks-list");
+  if (!state.notebooks.length) {
+    box.innerHTML = '<div class="empty" style="font-size:12px; padding:12px;">Пока нет блокнотов</div>';
+    return;
+  }
+  box.innerHTML = state.notebooks.map(nb => `
+    <div class="list-item ${nb.id === state.activeNotebook ? "active" : ""}" data-id="${escapeHtml(nb.id)}">
+      <div class="list-item-title" title="${escapeHtml(nb.title)}">${escapeHtml(nb.title)}</div>
+      <button class="list-item-del" data-del="${escapeHtml(nb.id)}" title="Удалить">×</button>
+    </div>
+  `).join("");
+
+  box.querySelectorAll(".list-item").forEach(el => {
+    el.addEventListener("click", (ev) => {
+      if (ev.target.dataset.del) return;
+      selectNotebook(el.dataset.id);
     });
-  }
-
-  function showPanel(id) {
-    ["panel-transcript", "panel-answer"].forEach(p => {
-      $(p).classList.toggle("show", p === id);
-    });
-  }
-
-  async function getTranscript() {
-    const url = $("url").value.trim();
-    if (!url) { setStatus("Вставь ссылку на YouTube", "err"); return; }
-
-    setBusy(true);
-    setStatus("Обрабатываю видео… обычно 10-20 секунд", "loading");
-
-    try {
-      const r = await fetch(API + "/api/transcript", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || "Ошибка сервера");
-
-      lastTranscript = data;
-      $("transcript-meta").textContent = `video_id: ${data.video_id} · ${data.char_count} символов`;
-      $("transcript-text").textContent = data.text;
-      showPanel("panel-transcript");
-      setStatus("Готово ✓", "ok");
-    } catch (e) {
-      setStatus("Ошибка: " + e.message, "err");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function askQuestion() {
-    const url = $("url").value.trim();
-    const question = $("question").value.trim();
-    if (!url) { setStatus("Сначала вставь ссылку на YouTube", "err"); return; }
-    if (!question) { setStatus("Напиши вопрос", "err"); return; }
-
-    setBusy(true);
-    setStatus("NotebookLM думает… обычно 20-40 секунд", "loading");
-
-    try {
-      const r = await fetch(API + "/api/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, question })
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || "Ошибка сервера");
-
-      lastAnswer = data;
-      $("answer-text").textContent = data.answer;
-      showPanel("panel-answer");
-      setStatus("Готово ✓", "ok");
-    } catch (e) {
-      setStatus("Ошибка: " + e.message, "err");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Кнопки
-  $("btn-transcript").onclick = getTranscript;
-  $("btn-ask").onclick = askQuestion;
-
-  $("btn-toggle-ask").onclick = () => {
-    const block = $("ask-block");
-    const visible = block.style.display !== "none";
-    block.style.display = visible ? "none" : "block";
-    if (!visible) $("question").focus();
-  };
-
-  $("url").addEventListener("keydown", e => {
-    if (e.key === "Enter") getTranscript();
   });
+  box.querySelectorAll(".list-item-del").forEach(el => {
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      deleteNotebook(el.dataset.del);
+    });
+  });
+}
 
-  $("btn-copy").onclick = () => {
-    if (!lastTranscript) return;
-    navigator.clipboard.writeText(lastTranscript.text);
-    $("btn-copy").textContent = "✅ Скопировано";
-    setTimeout(() => $("btn-copy").textContent = "📋 Копировать", 1500);
-  };
+async function createNotebook() {
+  const title = prompt("Название блокнота:", "Новый блокнот");
+  if (!title) return;
+  try {
+    const nb = await api("POST", "/api/notebooks", { title });
+    toast("Блокнот создан", "ok");
+    await loadNotebooks();
+    if (nb.id) selectNotebook(nb.id);
+  } catch (e) {
+    toast("Ошибка: " + e.message, "err");
+  }
+}
 
-  $("btn-download").onclick = () => {
-    if (!lastTranscript) return;
-    const blob = new Blob([lastTranscript.text], { type: "text/plain" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `transcript_${lastTranscript.video_id}.txt`;
-    a.click();
-  };
+async function deleteNotebook(nid) {
+  if (!confirm("Удалить блокнот? Все источники и история тоже удалятся.")) return;
+  try {
+    await api("DELETE", "/api/notebooks/" + nid);
+    if (state.activeNotebook === nid) {
+      state.activeNotebook = null;
+      localStorage.removeItem(LS_ACTIVE);
+      state.sources = [];
+      state.messages = [];
+      renderSources();
+      renderChat();
+    }
+    toast("Удалено", "ok");
+    await loadNotebooks();
+  } catch (e) {
+    toast("Ошибка: " + e.message, "err");
+  }
+}
 
-  $("btn-copy-answer").onclick = () => {
-    if (!lastAnswer) return;
-    navigator.clipboard.writeText(lastAnswer.answer);
-    $("btn-copy-answer").textContent = "✅ Скопировано";
-    setTimeout(() => $("btn-copy-answer").textContent = "📋 Копировать", 1500);
-  };
+function selectNotebook(nid) {
+  state.activeNotebook = nid;
+  localStorage.setItem(LS_ACTIVE, nid);
+  state.messages = JSON.parse(localStorage.getItem(LS_CHAT(nid)) || "[]");
+  renderNotebooks();
+  renderChat();
+  $("question").disabled = false;
+  $("btn-ask").disabled = false;
+  $("btn-add-sources").disabled = false;
+  loadSources();
+}
+
+async function loadSources() {
+  if (!state.activeNotebook || state.sourcesBusy) return;
+  state.sourcesBusy = true;
+  try {
+    const data = await api("GET", `/api/notebooks/${state.activeNotebook}/sources`);
+    state.sources = data.sources || [];
+    renderSources();
+    const hasProcessing = state.sources.some(s => {
+      const st = (s.status || "").toLowerCase();
+      return st.includes("process") || st.includes("pending") || st.includes("queue") || st === "unknown" || st === "";
+    });
+    if (hasProcessing && !state.sourcesPollTimer) {
+      state.sourcesPollTimer = setInterval(() => {
+        if (!state.sourcesBusy) loadSources();
+      }, 5000);
+    } else if (!hasProcessing && state.sourcesPollTimer) {
+      clearInterval(state.sourcesPollTimer);
+      state.sourcesPollTimer = null;
+    }
+  } catch (e) {
+    console.warn("loadSources error", e);
+  } finally {
+    state.sourcesBusy = false;
+  }
+}
+
+function statusClass(status) {
+  const s = (status || "").toLowerCase();
+  if (s.includes("ready") || s.includes("complete") || s === "done") return "status-ready";
+  if (s.includes("process") || s.includes("pending") || s.includes("queue")) return "status-processing";
+  if (s.includes("fail") || s.includes("error")) return "status-failed";
+  return "status-unknown";
+}
+
+function renderSources() {
+  const box = $("sources-list");
+  if (!state.activeNotebook) {
+    box.innerHTML = '<div class="empty" style="margin:20px auto;font-size:12px;">Выбери блокнот</div>';
+    return;
+  }
+  if (!state.sources.length) {
+    box.innerHTML = '<div class="empty" style="margin:20px auto;font-size:12px;">Нет источников — добавь ссылки ниже</div>';
+    return;
+  }
+  box.innerHTML = state.sources.map(s => `
+    <div class="source-item">
+      <div class="title">${escapeHtml(s.title || s.id || "—")}</div>
+      <div class="meta">
+        <span>${escapeHtml(s.kind || "")}</span>
+        <span class="status-badge ${statusClass(s.status)}">${escapeHtml(s.status || "?")}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function addSources() {
+  const raw = $("new-sources").value.trim();
+  if (!raw) { toast("Вставь хотя бы одну ссылку", "err"); return; }
+  if (!state.activeNotebook) { toast("Сначала выбери блокнот", "err"); return; }
+
+  const urls = raw.split(/[\s,\n]+/).map(s => s.trim()).filter(s => s.startsWith("http"));
+  if (!urls.length) { toast("Не нашёл ссылок", "err"); return; }
+
+  $("btn-add-sources").disabled = true;
+  $("btn-add-sources").textContent = `Добавляю ${urls.length}...`;
+  toast(`Отправлено ${urls.length} ссылок (может занять минуту)`, "");
+
+  try {
+    const res = await api("POST", `/api/notebooks/${state.activeNotebook}/sources`, { urls });
+    const ok = (res.added || []).length;
+    const err = (res.errors || []).length;
+    if (err) {
+      toast(`Добавлено ${ok}, ошибок ${err}`, "err");
+    } else {
+      toast(`Добавлено ${ok}`, "ok");
+      $("new-sources").value = "";
+    }
+    loadSources();
+  } catch (e) {
+    toast("Ошибка: " + e.message, "err");
+  } finally {
+    $("btn-add-sources").disabled = false;
+    $("btn-add-sources").textContent = "Добавить все";
+  }
+}
+
+function renderChat() {
+  const box = $("chat-messages");
+  if (!state.messages.length) {
+    box.innerHTML = '<div class="empty" id="chat-empty">Выбери блокнот слева или создай новый.<br>Добавь источники справа, потом задавай вопросы здесь.</div>';
+    return;
+  }
+  box.innerHTML = state.messages.map(m => `
+    <div class="msg msg-${m.role}${m.loading ? " loading" : ""}">${escapeHtml(m.text)}</div>
+  `).join("");
+  box.scrollTop = box.scrollHeight;
+}
+
+function saveChat() {
+  if (!state.activeNotebook) return;
+  localStorage.setItem(LS_CHAT(state.activeNotebook), JSON.stringify(state.messages));
+}
+
+async function askQuestion() {
+  const q = $("question").value.trim();
+  if (!q || !state.activeNotebook) return;
+  $("question").value = "";
+  $("question").style.height = "auto";
+  $("btn-ask").disabled = true;
+
+  state.messages.push({ role: "user", text: q });
+  state.messages.push({ role: "bot", text: "NotebookLM думает…", loading: true });
+  saveChat();
+  renderChat();
+
+  try {
+    const res = await api("POST", `/api/notebooks/${state.activeNotebook}/ask`, { question: q });
+    state.messages = state.messages.filter(m => !m.loading);
+    state.messages.push({ role: "bot", text: res.answer || "(пустой ответ)" });
+    saveChat();
+    renderChat();
+  } catch (e) {
+    state.messages = state.messages.filter(m => !m.loading);
+    state.messages.push({ role: "bot", text: "⚠ Ошибка: " + e.message });
+    saveChat();
+    renderChat();
+  } finally {
+    $("btn-ask").disabled = false;
+  }
+}
+
+$("btn-new-notebook").onclick = createNotebook;
+$("btn-refresh-sources").onclick = loadSources;
+$("btn-add-sources").onclick = addSources;
+$("btn-ask").onclick = askQuestion;
+
+$("question").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    askQuestion();
+  }
+});
+
+$("question").addEventListener("input", e => {
+  const t = e.target;
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 140) + "px";
+});
+
+(async function init() {
+  await checkHealth();
+  await loadNotebooks();
+  const saved = localStorage.getItem(LS_ACTIVE);
+  if (saved && state.notebooks.find(n => n.id === saved)) {
+    selectNotebook(saved);
+  }
+  setInterval(checkHealth, 60000);
+})();
 </script>
 </body>
 </html>

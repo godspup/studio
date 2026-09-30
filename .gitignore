@@ -36,3 +36,7 @@ dump.txt
 
 # секвенсор: без tools
 lols/sequencer/tools/
+
+# notebooklm — служебные файлы патчера
+lols/notebooklm/tools/
+lols/notebooklm/.patch-backups/
