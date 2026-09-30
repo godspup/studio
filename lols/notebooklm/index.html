@@ -704,25 +704,43 @@ function copyAllChat() {
 async function askQuestion() {
   const q = $("question").value.trim();
   if (!q || !state.activeNotebook) return;
+  const nid = state.activeNotebook;
   $("question").value = "";
   $("question").style.height = "auto";
   $("btn-ask").disabled = true;
 
   state.messages.push({ role: "user", text: q });
   state.messages.push({ role: "bot", text: "NotebookLM думает…", loading: true });
+  try {
+    const clean = state.messages.filter(m => !m.loading);
+    localStorage.setItem(LS_CHAT(nid), JSON.stringify(clean));
+  } catch (e) {}
   renderChat();
 
+  function saveAnswer(text) {
+    let arr = [];
+    try {
+      const raw = localStorage.getItem(LS_CHAT(nid));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          arr = parsed.filter(m => m && !m.loading && typeof m.text === "string" && (m.role === "user" || m.role === "bot"));
+        }
+      }
+    } catch (e) {}
+    arr.push({ role: "bot", text: text });
+    try { localStorage.setItem(LS_CHAT(nid), JSON.stringify(arr)); } catch (e) {}
+    if (state.activeNotebook === nid) {
+      state.messages = arr.slice();
+      renderChat();
+    }
+  }
+
   try {
-    const res = await api("POST", "/api/notebooks/" + state.activeNotebook + "/ask", { question: q });
-    state.messages = state.messages.filter(m => !m.loading);
-    state.messages.push({ role: "bot", text: res.answer || "(пустой ответ)" });
-    saveMessages();
-    renderChat();
+    const res = await api("POST", "/api/notebooks/" + nid + "/ask", { question: q });
+    saveAnswer(res.answer || "(пустой ответ)");
   } catch (e) {
-    state.messages = state.messages.filter(m => !m.loading);
-    state.messages.push({ role: "bot", text: "⚠ Ошибка: " + e.message });
-    saveMessages();
-    renderChat();
+    saveAnswer("⚠ Ошибка: " + e.message);
   } finally {
     $("btn-ask").disabled = false;
   }
