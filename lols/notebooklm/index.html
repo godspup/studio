@@ -22,8 +22,8 @@
     padding: 10px 16px; border-bottom: 1px solid var(--border);
     background: var(--bg2); flex-shrink: 0; gap: 8px;
   }
-  .brand { font-weight: 600; font-size: 14px; }
-  .brand a { color: var(--muted); text-decoration: none; margin-right: 12px; font-size: 12px; }
+  .brand { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .brand a { color: var(--muted); text-decoration: none; font-size: 12px; }
   .brand a:hover { color: var(--blue); }
   .api-status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
   .api-status::before {
@@ -33,71 +33,57 @@
   .api-status.checking::before { background: var(--yellow); animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: 0.3; } }
 
-  .layout {
-    display: grid; grid-template-columns: 260px 1fr 320px;
-    flex: 1; min-height: 0; overflow: hidden;
+  .nb-row {
+    display: flex; gap: 6px; align-items: center;
+    padding: 8px 12px; background: var(--bg2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
-  aside {
-    background: var(--bg2); overflow-y: auto;
-    display: flex; flex-direction: column;
+  .nb-row select {
+    flex: 1; min-width: 0;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 28px 8px 10px; border-radius: 6px;
+    font-family: inherit; font-size: 13px; outline: none;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%238b949e' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat; background-position: right 10px center;
+    text-overflow: ellipsis;
   }
-  .sidebar-left { border-right: 1px solid var(--border); }
-  .sidebar-right { border-left: 1px solid var(--border); }
-
-  .section-title {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-    color: var(--muted); padding: 12px 16px 6px; font-weight: 600;
-    display: flex; justify-content: space-between; align-items: center;
+  .nb-row select:focus { border-color: var(--blue); }
+  .nb-row select:disabled { opacity: 0.6; }
+  .nb-row button {
+    padding: 8px 11px; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; cursor: pointer; font-size: 13px;
+    flex-shrink: 0; line-height: 1;
   }
-  .section-title button {
-    padding: 2px 8px; font-size: 11px; background: transparent;
-    border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
-    cursor: pointer;
-  }
-  .section-title button:hover { color: var(--text); border-color: var(--muted); }
-
-  .btn-new {
-    margin: 8px 12px; padding: 8px 12px; border-radius: 6px;
-    background: var(--bg3); border: 1px solid var(--border);
-    color: var(--text); cursor: pointer; font-size: 13px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .btn-new:hover { background: #30363d; }
-
-  .list { padding: 0 8px 12px; }
-  .list-item {
-    padding: 8px 10px; border-radius: 6px; cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 6px; font-size: 13px; transition: background 0.1s;
-  }
-  .list-item:hover { background: var(--bg3); }
-  .list-item.active { background: #1f6feb22; color: var(--blue); }
-  .list-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .list-item-del {
-    opacity: 0; padding: 2px 6px; background: transparent; border: none;
-    color: var(--red); cursor: pointer; font-size: 14px;
-  }
-  .list-item:hover .list-item-del { opacity: 0.7; }
-  .list-item-del:hover { opacity: 1 !important; }
+  .nb-row button:hover:not(:disabled) { border-color: var(--muted); }
+  .nb-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .nb-row button.danger { color: var(--red); }
+  .nb-row button.danger:hover:not(:disabled) { border-color: var(--red); }
 
   .chat {
-    display: flex; flex-direction: column; min-height: 0; background: var(--bg);
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+    background: var(--bg);
   }
   .chat-messages {
     flex: 1; overflow-y: auto; padding: 16px;
     display: flex; flex-direction: column; gap: 12px;
+    user-select: text; -webkit-user-select: text;
   }
   .empty {
     color: var(--muted); text-align: center; margin: auto;
     font-size: 13px; max-width: 400px; line-height: 1.7; padding: 20px;
   }
+  .msg-wrap { display: flex; flex-direction: column; gap: 4px; max-width: 88%; }
+  .msg-wrap.user { align-self: flex-end; align-items: flex-end; }
+  .msg-wrap.bot { align-self: flex-start; align-items: flex-start; }
   .msg {
-    padding: 10px 14px; border-radius: 10px; max-width: 85%;
+    padding: 10px 14px; border-radius: 10px;
     white-space: pre-wrap; word-wrap: break-word; font-size: 13.5px;
-    line-height: 1.6;
+    line-height: 1.6; user-select: text; -webkit-user-select: text;
+    width: 100%;
   }
-  .msg-user { background: #1f6feb; color: #fff; align-self: flex-end; }
-  .msg-bot { background: var(--bg2); border: 1px solid var(--border); align-self: flex-start; }
+  .msg-user { background: #1f6feb; color: #fff; }
+  .msg-bot { background: var(--bg2); border: 1px solid var(--border); }
   .msg-bot.loading { color: var(--muted); font-style: italic; }
   .msg-bot.loading::after {
     content: ""; display: inline-block; width: 10px; height: 10px;
@@ -106,18 +92,36 @@
     margin-left: 8px; vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .msg-copy {
+    padding: 3px 9px; background: transparent;
+    border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; cursor: pointer; font-size: 11px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .msg-copy:hover { color: var(--text); border-color: var(--muted); }
+
+  .chat-tools {
+    display: flex; justify-content: flex-end;
+    padding: 6px 16px 0; background: var(--bg2);
+  }
+  .chat-tools button {
+    padding: 5px 10px; background: transparent;
+    border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; cursor: pointer; font-size: 11px;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .chat-tools button:hover { color: var(--text); border-color: var(--muted); }
 
   .chat-input {
-    display: flex; gap: 8px; padding: 12px 16px;
-    border-top: 1px solid var(--border); background: var(--bg2);
-    flex-shrink: 0;
+    display: flex; gap: 8px; padding: 8px 16px 12px;
+    background: var(--bg2); flex-shrink: 0;
   }
   .chat-input textarea {
     flex: 1; resize: none; background: var(--bg);
     border: 1px solid var(--border); border-radius: 6px;
     color: var(--text); padding: 10px 12px; font-family: inherit;
     font-size: 13.5px; min-height: 40px; max-height: 140px;
-    outline: none;
+    outline: none; user-select: text; -webkit-user-select: text;
   }
   .chat-input textarea:focus { border-color: var(--blue); }
 
@@ -129,8 +133,38 @@
   button.primary:hover:not(:disabled) { filter: brightness(1.1); }
   button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  .sources-panel {
+    border-top: 1px solid var(--border); background: var(--bg2);
+    flex-shrink: 0; display: flex; flex-direction: column;
+    max-height: 50vh;
+  }
+  .sources-panel.collapsed .sources-body { display: none; }
+  .sources-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; cursor: pointer;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); font-weight: 600;
+    user-select: none; -webkit-user-select: none;
+  }
+  .sources-header:hover { color: var(--text); }
+  .sources-header .left { display: flex; align-items: center; gap: 8px; }
+  .sources-header .chev { transition: transform 0.15s; display: inline-block; font-size: 9px; }
+  .sources-panel.collapsed .sources-header .chev { transform: rotate(-90deg); }
+  .sources-header .actions { display: flex; gap: 6px; }
+  .sources-header button {
+    padding: 2px 8px; font-size: 11px; background: transparent;
+    border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
+    cursor: pointer;
+  }
+  .sources-header button:hover { color: var(--text); border-color: var(--muted); }
+
+  .sources-body {
+    overflow-y: auto; flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+  }
+  .sources-list { padding: 0 12px; }
   .source-item {
-    margin: 6px 12px; padding: 10px 12px; background: var(--bg);
+    margin: 4px 0; padding: 10px 12px; background: var(--bg);
     border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
     display: flex; flex-direction: column; gap: 6px;
   }
@@ -153,14 +187,14 @@
   .status-unknown { background: var(--bg3); color: var(--muted); }
 
   .add-sources {
-    padding: 8px 12px 12px; margin-top: auto;
-    border-top: 1px solid var(--border); background: var(--bg2);
+    padding: 8px 12px 12px; border-top: 1px solid var(--border);
   }
   .add-sources textarea {
-    width: 100%; resize: vertical; min-height: 80px;
+    width: 100%; resize: vertical; min-height: 70px;
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 6px; color: var(--text); padding: 8px 10px;
     font-family: inherit; font-size: 12px; outline: none;
+    user-select: text; -webkit-user-select: text;
   }
   .add-sources textarea:focus { border-color: var(--blue); }
   .add-sources button {
@@ -181,13 +215,6 @@
   .toast.show { opacity: 1; }
   .toast.err { border-color: var(--red); color: var(--red); }
   .toast.ok { border-color: var(--green); color: var(--green); }
-
-  @media (max-width: 900px) {
-    .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-    .sidebar-left { border-right: none; border-bottom: 1px solid var(--border); max-height: 180px; }
-    .sidebar-right { border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
-    .chat { min-height: 40vh; }
-  }
 </style>
 </head>
 <body>
@@ -200,41 +227,51 @@
   <div class="api-status checking" id="api-status">проверка API…</div>
 </div>
 
-<div class="layout">
-  <aside class="sidebar-left">
-    <div class="section-title">Блокноты</div>
-    <button class="btn-new" id="btn-new-notebook">➕ Новый блокнот</button>
-    <div class="list" id="notebooks-list"></div>
-  </aside>
+<div class="nb-row">
+  <select id="nb-select" title="Выбрать блокнот" disabled>
+    <option value="">— нет блокнотов —</option>
+  </select>
+  <button id="btn-new-notebook" title="Новый блокнот">＋</button>
+  <button id="btn-del-notebook" class="danger" title="Удалить блокнот" disabled>✕</button>
+</div>
 
-  <main class="chat">
-    <div class="chat-messages" id="chat-messages">
-      <div class="empty" id="chat-empty">
-        Выбери блокнот слева или создай новый.<br>
-        Добавь источники справа, потом задавай вопросы здесь.
-      </div>
+<main class="chat">
+  <div class="chat-messages" id="chat-messages">
+    <div class="empty" id="chat-empty">
+      Выбери блокнот сверху или создай новый.<br>
+      Добавь источники внизу, потом задавай вопросы здесь.
     </div>
-    <div class="chat-input">
-      <textarea id="question" placeholder="Задай вопрос по источникам..." rows="1" disabled></textarea>
-      <button class="primary" id="btn-ask" disabled>Отправить</button>
-    </div>
-  </main>
+  </div>
+  <div class="chat-tools">
+    <button id="btn-copy-chat" title="Скопировать весь чат">📋 Копировать весь чат</button>
+  </div>
+  <div class="chat-input">
+    <textarea id="question" placeholder="Задай вопрос по источникам..." rows="1" disabled></textarea>
+    <button class="primary" id="btn-ask" disabled>Отправить</button>
+  </div>
+</main>
 
-  <aside class="sidebar-right">
-    <div class="section-title">
-      Источники
+<section class="sources-panel" id="sources-panel">
+  <div class="sources-header" id="sources-header">
+    <div class="left">
+      <span class="chev">▼</span>
+      <span>Источники <span id="sources-count">(0)</span></span>
+    </div>
+    <div class="actions">
       <button id="btn-refresh-sources" title="Обновить">🔄</button>
     </div>
-    <div id="sources-list" style="flex:1; overflow-y:auto;">
-      <div class="empty" style="margin: 20px auto; font-size: 12px;">Выбери блокнот</div>
+  </div>
+  <div class="sources-body">
+    <div id="sources-list" class="sources-list">
+      <div class="empty" style="margin: 12px auto; font-size: 12px;">Выбери блокнот</div>
     </div>
     <div class="add-sources">
       <textarea id="new-sources" placeholder="Вставь ссылки — каждая с новой строки.&#10;Поддерживаются YouTube-видео и целые плейлисты."></textarea>
       <button id="btn-add-sources" disabled>Добавить все</button>
       <div class="hint">Мультивыбор: разделяй переносом строки, пробелом или запятой</div>
     </div>
-  </aside>
-</div>
+  </div>
+</section>
 
 <div class="toast" id="toast"></div>
 
@@ -259,6 +296,27 @@ function toast(msg, cls = "") {
   t.className = "toast show " + cls;
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.className = "toast " + cls, 2500);
+}
+
+async function copyText(text) {
+  if (!text) { toast("Нечего копировать", "err"); return; }
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    toast("Скопировано", "ok");
+  } catch (e) {
+    toast("Не удалось скопировать: " + e.message, "err");
+  }
 }
 
 function setApiStatus(text, cls) {
@@ -306,30 +364,18 @@ async function loadNotebooks() {
 }
 
 function renderNotebooks() {
-  const box = $("notebooks-list");
+  const sel = $("nb-select");
   if (!state.notebooks.length) {
-    box.innerHTML = '<div class="empty" style="font-size:12px; padding:12px;">Пока нет блокнотов</div>';
+    sel.innerHTML = '<option value="">— нет блокнотов —</option>';
+    sel.disabled = true;
+    $("btn-del-notebook").disabled = true;
     return;
   }
-  box.innerHTML = state.notebooks.map(nb => `
-    <div class="list-item ${nb.id === state.activeNotebook ? "active" : ""}" data-id="${escapeHtml(nb.id)}">
-      <div class="list-item-title" title="${escapeHtml(nb.title)}">${escapeHtml(nb.title)}</div>
-      <button class="list-item-del" data-del="${escapeHtml(nb.id)}" title="Удалить">×</button>
-    </div>
-  `).join("");
-
-  box.querySelectorAll(".list-item").forEach(el => {
-    el.addEventListener("click", (ev) => {
-      if (ev.target.dataset.del) return;
-      selectNotebook(el.dataset.id);
-    });
-  });
-  box.querySelectorAll(".list-item-del").forEach(el => {
-    el.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      deleteNotebook(el.dataset.del);
-    });
-  });
+  sel.disabled = false;
+  sel.innerHTML = state.notebooks.map(nb =>
+    `<option value="${escapeHtml(nb.id)}"${nb.id === state.activeNotebook ? " selected" : ""}>${escapeHtml(nb.title || nb.id)}</option>`
+  ).join("");
+  $("btn-del-notebook").disabled = !state.activeNotebook;
 }
 
 async function createNotebook() {
@@ -345,20 +391,27 @@ async function createNotebook() {
   }
 }
 
-async function deleteNotebook(nid) {
+async function deleteNotebook() {
+  const nid = state.activeNotebook;
+  if (!nid) { toast("Сначала выбери блокнот", "err"); return; }
   if (!confirm("Удалить блокнот? Все источники и история тоже удалятся.")) return;
   try {
     await api("DELETE", "/api/notebooks/" + nid);
-    if (state.activeNotebook === nid) {
-      state.activeNotebook = null;
-      localStorage.removeItem(LS_ACTIVE);
-      state.sources = [];
-      state.messages = [];
-      renderSources();
-      renderChat();
-    }
+    localStorage.removeItem(LS_ACTIVE);
+    state.activeNotebook = null;
+    state.sources = [];
+    state.messages = [];
+    renderSources();
+    renderChat();
     toast("Удалено", "ok");
     await loadNotebooks();
+    if (state.notebooks.length) {
+      selectNotebook(state.notebooks[0].id);
+    } else {
+      $("question").disabled = true;
+      $("btn-ask").disabled = true;
+      $("btn-add-sources").disabled = true;
+    }
   } catch (e) {
     toast("Ошибка: " + e.message, "err");
   }
@@ -412,12 +465,14 @@ function statusClass(status) {
 
 function renderSources() {
   const box = $("sources-list");
+  const cnt = $("sources-count");
+  cnt.textContent = "(" + state.sources.length + ")";
   if (!state.activeNotebook) {
-    box.innerHTML = '<div class="empty" style="margin:20px auto;font-size:12px;">Выбери блокнот</div>';
+    box.innerHTML = '<div class="empty" style="margin:12px auto;font-size:12px;">Выбери блокнот</div>';
     return;
   }
   if (!state.sources.length) {
-    box.innerHTML = '<div class="empty" style="margin:20px auto;font-size:12px;">Нет источников — добавь ссылки ниже</div>';
+    box.innerHTML = '<div class="empty" style="margin:12px auto;font-size:12px;">Нет источников — добавь ссылки ниже</div>';
     return;
   }
   box.innerHTML = state.sources.map(s => `
@@ -465,18 +520,42 @@ async function addSources() {
 function renderChat() {
   const box = $("chat-messages");
   if (!state.messages.length) {
-    box.innerHTML = '<div class="empty" id="chat-empty">Выбери блокнот слева или создай новый.<br>Добавь источники справа, потом задавай вопросы здесь.</div>';
+    box.innerHTML = '<div class="empty" id="chat-empty">Выбери блокнот сверху или создай новый.<br>Добавь источники внизу, потом задавай вопросы здесь.</div>';
     return;
   }
-  box.innerHTML = state.messages.map(m => `
-    <div class="msg msg-${m.role}${m.loading ? " loading" : ""}">${escapeHtml(m.text)}</div>
-  `).join("");
+  box.innerHTML = state.messages.map((m, idx) => {
+    if (m.role === "user") {
+      return `<div class="msg-wrap user"><div class="msg msg-user">${escapeHtml(m.text)}</div></div>`;
+    }
+    const loading = m.loading ? " loading" : "";
+    const copyBtn = m.loading ? "" :
+      `<button class="msg-copy" data-copy-idx="${idx}" title="Скопировать">📋 Копировать</button>`;
+    return `<div class="msg-wrap bot"><div class="msg msg-bot${loading}">${escapeHtml(m.text)}</div>${copyBtn}</div>`;
+  }).join("");
+  box.querySelectorAll(".msg-copy").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.copyIdx, 10);
+      const m = state.messages[i];
+      if (m) copyText(m.text);
+    });
+  });
   box.scrollTop = box.scrollHeight;
 }
 
 function saveChat() {
   if (!state.activeNotebook) return;
   localStorage.setItem(LS_CHAT(state.activeNotebook), JSON.stringify(state.messages));
+}
+
+function copyWholeChat() {
+  if (!state.messages.length) { toast("Чат пуст", "err"); return; }
+  const nb = state.notebooks.find(n => n.id === state.activeNotebook);
+  const head = nb ? `# ${nb.title}\n\n` : "";
+  const body = state.messages.filter(m => !m.loading).map(m => {
+    if (m.role === "user") return `## Я\n${m.text}\n`;
+    return `## NotebookLM\n${m.text}\n`;
+  }).join("\n");
+  copyText(head + body);
 }
 
 async function askQuestion() {
@@ -508,9 +587,20 @@ async function askQuestion() {
 }
 
 $("btn-new-notebook").onclick = createNotebook;
-$("btn-refresh-sources").onclick = loadSources;
+$("btn-del-notebook").onclick = deleteNotebook;
+$("btn-refresh-sources").onclick = (e) => { e.stopPropagation(); loadSources(); };
 $("btn-add-sources").onclick = addSources;
 $("btn-ask").onclick = askQuestion;
+$("btn-copy-chat").onclick = copyWholeChat;
+
+$("nb-select").onchange = (e) => {
+  const v = e.target.value;
+  if (v) selectNotebook(v);
+};
+
+$("sources-header").onclick = () => {
+  $("sources-panel").classList.toggle("collapsed");
+};
 
 $("question").addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
