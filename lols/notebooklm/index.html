@@ -531,6 +531,8 @@ $("question").addEventListener("input", e => {
   const saved = localStorage.getItem(LS_ACTIVE);
   if (saved && state.notebooks.find(n => n.id === saved)) {
     selectNotebook(saved);
+  } else if (state.notebooks.length) {
+    selectNotebook(state.notebooks[0].id);
   }
   setInterval(checkHealth, 60000);
 })();
