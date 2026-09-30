@@ -324,6 +324,32 @@
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .toast.err { background: var(--err); color: #fffaf3; }
   .toast.ok { background: var(--ok); color: #fffaf3; }
+
+  .msg.bot { white-space: normal; }
+  .msg.bot p { margin: 0 0 8px; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.bot h1, .msg.bot h2, .msg.bot h3, .msg.bot h4, .msg.bot h5, .msg.bot h6 {
+    margin: 10px 0 6px; line-height: 1.3; font-weight: 600;
+  }
+  .msg.bot h1 { font-size: 18px; }
+  .msg.bot h2 { font-size: 16px; }
+  .msg.bot h3 { font-size: 15px; }
+  .msg.bot h4, .msg.bot h5, .msg.bot h6 { font-size: 14px; }
+  .msg.bot ul, .msg.bot ol { margin: 6px 0 8px; padding-left: 22px; }
+  .msg.bot li { margin: 3px 0; }
+  .msg.bot code {
+    background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+    font-size: 0.9em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .msg.bot pre {
+    background: var(--surface-2); padding: 10px 12px; border-radius: 8px;
+    overflow-x: auto; margin: 8px 0;
+  }
+  .msg.bot pre code { background: none; padding: 0; font-size: 0.88em; }
+  .msg.bot a { color: var(--accent); text-decoration: underline; }
+  .msg.bot strong { font-weight: 600; }
+  .msg.bot em { font-style: italic; }
+
 </style>
 </head>
 <body>
@@ -650,44 +676,126 @@ function saveMessages() {
   }
 }
 
+function inlineMD(s) {
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  s = s.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s;
+}
+
+function renderMarkdown(text) {
+  let s = escapeHtml(text);
+  const codeBlocks = [];
+  s = s.replace(/```([\s\S]*?)```/g, (m, code) => {
+    const i = codeBlocks.length;
+    codeBlocks.push(code.replace(/^[a-zA-Z0-9_+-]*\n/, ''));
+    return '\u0000CB' + i + '\u0000';
+  });
+  const lines = s.split('\n');
+  const out = [];
+  let listBuf = null;
+  let paraBuf = [];
+  function flushList() {
+    if (!listBuf) return;
+    const tag = listBuf.type === 'ul' ? 'ul' : 'ol';
+    out.push('<' + tag + '>' + listBuf.items.map(x => '<li>' + x + '</li>').join('') + '</' + tag + '>');
+    listBuf = null;
+  }
+  function flushPara() {
+    if (!paraBuf.length) return;
+    out.push('<p>' + paraBuf.join('<br>') + '</p>');
+    paraBuf = [];
+  }
+  for (const line of lines) {
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      flushList(); flushPara();
+      const lvl = h[1].length;
+      out.push('<h' + lvl + '>' + inlineMD(h[2]) + '</h' + lvl + '>');
+      continue;
+    }
+    const ul = line.match(/^\s*[-*+]\s+(.*)$/);
+    if (ul) {
+      flushPara();
+      if (!listBuf || listBuf.type !== 'ul') { flushList(); listBuf = { type: 'ul', items: [] }; }
+      listBuf.items.push(inlineMD(ul[1]));
+      continue;
+    }
+    const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (ol) {
+      flushPara();
+      if (!listBuf || listBuf.type !== 'ol') { flushList(); listBuf = { type: 'ol', items: [] }; }
+      listBuf.items.push(inlineMD(ol[1]));
+      continue;
+    }
+    if (line.trim() === '') { flushList(); flushPara(); continue; }
+    flushList();
+    paraBuf.push(inlineMD(line));
+  }
+  flushList(); flushPara();
+  let html = out.join('');
+  html = html.replace(/\u0000CB(\d+)\u0000/g, (m, i) => '<pre><code>' + codeBlocks[+i] + '</code></pre>');
+  return html;
+}
+
 function renderChat() {
   const box = $("chat-messages");
   if (!state.activeNotebook) {
-    box.innerHTML = `
-      <div class="empty">
-        <span class="icon">📓</span>
-        <div class="title">Блокнот не выбран</div>
-        Выбери блокнот сверху или создай новый
-      </div>`;
+    box.innerHTML = '<div class="empty"><span class="icon">📓</span><div class="title">Блокнот не выбран</div>Выбери блокнот сверху или создай новый</div>';
     return;
   }
   if (!state.messages.length) {
-    box.innerHTML = `
-      <div class="empty">
-        <span class="icon">✨</span>
-        <div class="title">Пустой чат</div>
-        Добавь источники (📎 внизу) и задай вопрос
-      </div>`;
+    box.innerHTML = '<div class="empty"><span class="icon">✨</span><div class="title">Пустой чат</div>Добавь источники (📎 внизу) и задай вопрос</div>';
     return;
   }
+  let lastUserIdx = -1;
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    if (state.messages[i].role === "user") { lastUserIdx = i; break; }
+  }
   box.innerHTML = state.messages.map((m, idx) => {
-    const safe = escapeHtml(m.text);
     if (m.role === "user") {
-      return `<div class="msg-row user"><div class="msg user">${safe}</div></div>`;
+      const btn = idx === lastUserIdx
+        ? '<button class="copy-btn" data-edit="' + idx + '" title="Изменить">✏️ Изменить</button>'
+        : "";
+      return '<div class="msg-row user"><div class="msg user">' + escapeHtml(m.text) + '</div>' + btn + '</div>';
     }
     const loadingCls = m.loading ? " loading" : "";
+    const inner = m.loading ? escapeHtml(m.text) : renderMarkdown(m.text);
     const btn = m.loading ? "" :
-      `<button class="copy-btn" data-copy="${idx}" title="Копировать">📋 Копировать</button>`;
-    return `<div class="msg-row bot"><div class="msg bot${loadingCls}">${safe}</div>${btn}</div>`;
+      '<button class="copy-btn" data-copy="' + idx + '" title="Копировать">📋 Копировать</button>';
+    return '<div class="msg-row bot"><div class="msg bot' + loadingCls + '">' + inner + '</div>' + btn + '</div>';
   }).join("");
-  box.querySelectorAll(".copy-btn").forEach(btn => {
+  box.querySelectorAll(".copy-btn[data-copy]").forEach(btn => {
     btn.addEventListener("click", () => {
       const i = parseInt(btn.dataset.copy, 10);
       const m = state.messages[i];
       if (m) copyText(m.text);
     });
   });
+  box.querySelectorAll(".copy-btn[data-edit]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.edit, 10);
+      editMessage(i);
+    });
+  });
   box.scrollTop = box.scrollHeight;
+}
+
+function editMessage(idx) {
+  const m = state.messages[idx];
+  if (!m || m.role !== "user") return;
+  const text = m.text;
+  state.messages = state.messages.slice(0, idx);
+  saveMessages();
+  renderChat();
+  const ta = $("question");
+  ta.value = text;
+  ta.focus();
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 130) + "px";
 }
 
 function copyAllChat() {
@@ -717,6 +825,16 @@ async function askQuestion() {
   } catch (e) {}
   renderChat();
 
+  clearTimeout(askQuestion._timer);
+  askQuestion._timer = setTimeout(() => {
+    if (state.activeNotebook !== nid) return;
+    const i = state.messages.findIndex(m => m.loading);
+    if (i >= 0) {
+      state.messages[i].text = "Всё ещё думает, ничего не сломалось (наверное)…";
+      renderChat();
+    }
+  }, 20000);
+
   function saveAnswer(text) {
     let arr = [];
     try {
@@ -742,6 +860,8 @@ async function askQuestion() {
   } catch (e) {
     saveAnswer("⚠ Ошибка: " + e.message);
   } finally {
+    clearTimeout(askQuestion._timer);
+    askQuestion._timer = null;
     $("btn-ask").disabled = false;
   }
 }
@@ -864,12 +984,6 @@ $("btn-refresh-sources").addEventListener("click", () => loadSources());
 $("btn-add-sources").addEventListener("click", addSources);
 $("btn-ask").addEventListener("click", askQuestion);
 
-$("question").addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    askQuestion();
-  }
-});
 $("question").addEventListener("input", e => {
   const t = e.target;
   t.style.height = "auto";
