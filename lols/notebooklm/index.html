@@ -2,283 +2,406 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NotebookLM Bridge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5efe6">
+<title>NotebookLM</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   :root {
-    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
-    --border: #30363d; --text: #e6edf3; --muted: #8b949e; --dim: #6e7681;
-    --blue: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --bg: #f5efe6;
+    --surface: #fffcf6;
+    --surface-2: #ede4d6;
+    --surface-3: #e5d8c4;
+    --border: #dfd3c1;
+    --border-strong: #c9b8a0;
+    --text: #2f2721;
+    --text-muted: #8a7a68;
+    --text-dim: #b3a695;
+    --accent: #b86545;
+    --accent-hover: #a35538;
+    --accent-soft: #f5e0d2;
+    --ok: #6e8f5a;
+    --warn: #c19a3e;
+    --err: #c25648;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px rgba(60, 40, 20, 0.06);
+    --shadow: 0 4px 12px rgba(60, 40, 20, 0.08);
+    --shadow-lg: 0 12px 32px rgba(60, 40, 20, 0.14);
   }
   html, body { height: 100%; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5;
-    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5;
+    display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
   }
   .topbar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 16px; border-bottom: 1px solid var(--border);
-    background: var(--bg2); flex-shrink: 0; gap: 8px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    flex-shrink: 0;
   }
-  .brand { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-  .brand a { color: var(--muted); text-decoration: none; font-size: 12px; }
-  .brand a:hover { color: var(--blue); }
-  .api-status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .api-status::before {
-    content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+  .back {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: var(--surface); color: var(--text);
+    text-decoration: none; font-size: 17px;
+    box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+    flex-shrink: 0; transition: background 0.15s;
   }
-  .api-status.ok::before { background: var(--green); }
-  .api-status.checking::before { background: var(--yellow); animation: pulse 1s infinite; }
-  @keyframes pulse { 50% { opacity: 0.3; } }
+  .back:active { background: var(--surface-2); }
+  .brand { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; flex: 1; }
+  .status {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--text-dim); flex-shrink: 0; transition: background 0.2s, box-shadow 0.2s;
+  }
+  .status.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(110, 143, 90, 0.18); }
+  .status.err { background: var(--err); }
+  .status.checking { background: var(--warn); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
 
-  .nb-row {
-    display: flex; gap: 6px; align-items: center;
-    padding: 8px 12px; background: var(--bg2);
-    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  .nb-pill {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 14px 12px;
+    padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); cursor: pointer;
+    font-family: inherit; font-size: 15px; text-align: left;
+    box-shadow: var(--shadow-sm); flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, transform 0.08s;
   }
-  .nb-row select {
-    flex: 1; min-width: 0;
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 8px 28px 8px 10px; border-radius: 6px;
-    font-family: inherit; font-size: 13px; outline: none;
-    appearance: none; -webkit-appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%238b949e' d='M0 0l5 6 5-6z'/></svg>");
-    background-repeat: no-repeat; background-position: right 10px center;
-    text-overflow: ellipsis;
+  .nb-pill:active { transform: scale(0.985); background: var(--surface-2); }
+  .nb-pill .icon { font-size: 18px; flex-shrink: 0; }
+  .nb-pill .title {
+    flex: 1; min-width: 0; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .nb-row select:focus { border-color: var(--blue); }
-  .nb-row select:disabled { opacity: 0.6; }
-  .nb-row button {
-    padding: 8px 11px; background: var(--bg3); border: 1px solid var(--border);
-    color: var(--text); border-radius: 6px; cursor: pointer; font-size: 13px;
-    flex-shrink: 0; line-height: 1;
-  }
-  .nb-row button:hover:not(:disabled) { border-color: var(--muted); }
-  .nb-row button:disabled { opacity: 0.4; cursor: not-allowed; }
-  .nb-row button.danger { color: var(--red); }
-  .nb-row button.danger:hover:not(:disabled) { border-color: var(--red); }
+  .nb-pill .title.placeholder { color: var(--text-dim); font-weight: 400; }
+  .nb-pill .chev { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
 
   .chat {
-    display: flex; flex-direction: column; flex: 1; min-height: 0;
-    background: var(--bg);
-  }
-  .chat-messages {
-    flex: 1; overflow-y: auto; padding: 16px;
-    display: flex; flex-direction: column; gap: 12px;
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 8px 14px 16px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
     user-select: text; -webkit-user-select: text;
   }
   .empty {
-    color: var(--muted); text-align: center; margin: auto;
-    font-size: 13px; max-width: 400px; line-height: 1.7; padding: 20px;
+    margin: auto; text-align: center; color: var(--text-muted);
+    font-size: 14px; line-height: 1.6; max-width: 280px; padding: 20px;
   }
-  .msg-wrap { display: flex; flex-direction: column; gap: 4px; max-width: 88%; }
-  .msg-wrap.user { align-self: flex-end; align-items: flex-end; }
-  .msg-wrap.bot { align-self: flex-start; align-items: flex-start; }
+  .empty .icon { font-size: 42px; display: block; margin-bottom: 14px; opacity: 0.5; }
+  .empty .title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+  .msg-row { display: flex; flex-direction: column; gap: 5px; max-width: 88%; }
+  .msg-row.user { align-self: flex-end; align-items: flex-end; }
+  .msg-row.bot { align-self: flex-start; align-items: flex-start; }
   .msg {
-    padding: 10px 14px; border-radius: 10px;
-    white-space: pre-wrap; word-wrap: break-word; font-size: 13.5px;
-    line-height: 1.6; user-select: text; -webkit-user-select: text;
-    width: 100%;
+    padding: 11px 15px; border-radius: 18px;
+    font-size: 15px; line-height: 1.5;
+    white-space: pre-wrap; word-wrap: break-word;
+    user-select: text; -webkit-user-select: text;
+    animation: msgIn 0.22s ease-out;
   }
-  .msg-user { background: #1f6feb; color: #fff; }
-  .msg-bot { background: var(--bg2); border: 1px solid var(--border); }
-  .msg-bot.loading { color: var(--muted); font-style: italic; }
-  .msg-bot.loading::after {
-    content: ""; display: inline-block; width: 10px; height: 10px;
-    border: 2px solid var(--border); border-top-color: var(--blue);
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .msg.user {
+    background: var(--accent); color: #fffaf3;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 2px 8px rgba(184, 101, 69, 0.22);
+  }
+  .msg.bot {
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 6px;
+    box-shadow: var(--shadow-sm);
+  }
+  .msg.bot.loading { color: var(--text-muted); font-style: italic; }
+  .msg.bot.loading::after {
+    content: ""; display: inline-block;
+    width: 10px; height: 10px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
     border-radius: 50%; animation: spin 0.8s linear infinite;
     margin-left: 8px; vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .msg-copy {
-    padding: 3px 9px; background: transparent;
-    border: 1px solid var(--border); color: var(--muted);
-    border-radius: 6px; cursor: pointer; font-size: 11px;
+  .copy-btn {
+    padding: 4px 10px; background: transparent;
+    border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 11px; font-family: inherit;
     display: inline-flex; align-items: center; gap: 4px;
+    transition: color 0.15s, border-color 0.15s, transform 0.08s;
   }
-  .msg-copy:hover { color: var(--text); border-color: var(--muted); }
+  .copy-btn:active { transform: scale(0.94); color: var(--text); border-color: var(--border-strong); }
 
-  .chat-tools {
-    display: flex; justify-content: flex-end;
-    padding: 6px 16px 0; background: var(--bg2);
+  .dock {
+    flex-shrink: 0; padding: 10px 14px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    background: var(--bg); border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
   }
-  .chat-tools button {
-    padding: 5px 10px; background: transparent;
-    border: 1px solid var(--border); color: var(--muted);
-    border-radius: 6px; cursor: pointer; font-size: 11px;
-    display: inline-flex; align-items: center; gap: 5px;
+  .dock-tools { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .dock-tools::-webkit-scrollbar { display: none; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 20px;
+    color: var(--text-muted); cursor: pointer; font-family: inherit;
+    font-size: 12.5px; font-weight: 500; white-space: nowrap;
+    transition: all 0.15s; flex-shrink: 0;
   }
-  .chat-tools button:hover { color: var(--text); border-color: var(--muted); }
+  .chip:active { transform: scale(0.97); color: var(--text); border-color: var(--border-strong); }
+  .chip-badge {
+    min-width: 18px; height: 18px; padding: 0 5px;
+    background: var(--accent-soft); color: var(--accent);
+    border-radius: 9px; font-size: 11px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
 
-  .chat-input {
-    display: flex; gap: 8px; padding: 8px 16px 12px;
-    background: var(--bg2); flex-shrink: 0;
-  }
-  .chat-input textarea {
-    flex: 1; resize: none; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); padding: 10px 12px; font-family: inherit;
-    font-size: 13.5px; min-height: 40px; max-height: 140px;
-    outline: none; user-select: text; -webkit-user-select: text;
-  }
-  .chat-input textarea:focus { border-color: var(--blue); }
-
-  button.primary {
-    padding: 10px 16px; background: var(--green); border: none;
-    border-radius: 6px; color: #fff; font-weight: 500; cursor: pointer;
-    font-size: 13px;
-  }
-  button.primary:hover:not(:disabled) { filter: brightness(1.1); }
-  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .sources-panel {
-    border-top: 1px solid var(--border); background: var(--bg2);
-    flex-shrink: 0; display: flex; flex-direction: column;
-    max-height: 50vh;
-  }
-  .sources-panel.collapsed .sources-body { display: none; }
-  .sources-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 16px; cursor: pointer;
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-    color: var(--muted); font-weight: 600;
-    user-select: none; -webkit-user-select: none;
-  }
-  .sources-header:hover { color: var(--text); }
-  .sources-header .left { display: flex; align-items: center; gap: 8px; }
-  .sources-header .chev { transition: transform 0.15s; display: inline-block; font-size: 9px; }
-  .sources-panel.collapsed .sources-header .chev { transform: rotate(-90deg); }
-  .sources-header .actions { display: flex; gap: 6px; }
-  .sources-header button {
-    padding: 2px 8px; font-size: 11px; background: transparent;
-    border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
-    cursor: pointer;
-  }
-  .sources-header button:hover { color: var(--text); border-color: var(--muted); }
-
-  .sources-body {
-    overflow-y: auto; flex: 1 1 auto; min-height: 0;
-    display: flex; flex-direction: column;
-  }
-  .sources-list { padding: 0 12px; }
-  .source-item {
-    margin: 4px 0; padding: 10px 12px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
-    display: flex; flex-direction: column; gap: 6px;
-  }
-  .source-item .title {
-    font-weight: 500; overflow: hidden; text-overflow: ellipsis;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    line-height: 1.4;
-  }
-  .source-item .meta {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 11px; color: var(--dim); gap: 6px;
-  }
-  .status-badge {
-    padding: 2px 8px; border-radius: 10px; font-size: 10px;
-    font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
-  }
-  .status-ready { background: #3fb95033; color: var(--green); }
-  .status-processing { background: #d2992233; color: var(--yellow); }
-  .status-failed { background: #f8514933; color: var(--red); }
-  .status-unknown { background: var(--bg3); color: var(--muted); }
-
-  .add-sources {
-    padding: 8px 12px 12px; border-top: 1px solid var(--border);
-  }
-  .add-sources textarea {
-    width: 100%; resize: vertical; min-height: 70px;
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: 6px; color: var(--text); padding: 8px 10px;
-    font-family: inherit; font-size: 12px; outline: none;
+  .dock-input { display: flex; gap: 8px; align-items: flex-end; }
+  .dock-input textarea {
+    flex: 1; resize: none;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 22px; color: var(--text);
+    padding: 11px 16px; font-family: inherit; font-size: 15px; line-height: 1.4;
+    min-height: 44px; max-height: 130px; outline: none;
+    transition: border-color 0.15s;
     user-select: text; -webkit-user-select: text;
   }
-  .add-sources textarea:focus { border-color: var(--blue); }
-  .add-sources button {
-    width: 100%; margin-top: 8px; padding: 9px;
-    background: #1f6feb; border: none; border-radius: 6px;
-    color: #fff; cursor: pointer; font-size: 13px; font-weight: 500;
+  .dock-input textarea:focus { border-color: var(--accent); }
+  .dock-input textarea:disabled { opacity: 0.5; }
+  .send {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--accent); border: none; color: #fffaf3;
+    font-size: 19px; font-weight: 600; cursor: pointer;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, transform 0.08s;
+    box-shadow: 0 2px 8px rgba(184, 101, 69, 0.3);
   }
-  .add-sources button:hover:not(:disabled) { filter: brightness(1.1); }
-  .add-sources button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .add-sources .hint { font-size: 11px; color: var(--dim); margin-top: 6px; }
+  .send:active:not(:disabled) { transform: scale(0.92); background: var(--accent-hover); }
+  .send:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(60, 40, 20, 0.4);
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+    z-index: 100; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    max-height: 88vh; background: var(--surface);
+    border-radius: 22px 22px 0 0;
+    display: flex; flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -8px 32px rgba(60, 40, 20, 0.18);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .overlay.open .sheet { transform: translateY(0); }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 12px;
+    font-size: 16px; font-weight: 600; flex-shrink: 0;
+  }
+  .sheet-head-actions { display: flex; gap: 6px; }
+  .sheet-close, .sheet-icon {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--surface-2); border: none;
+    color: var(--text-muted); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .sheet-close:active, .sheet-icon:active { background: var(--surface-3); color: var(--text); }
+  .sheet-body {
+    overflow-y: auto; flex: 1; min-height: 0;
+    padding: 4px 14px 20px;
+    user-select: text; -webkit-user-select: text;
+  }
+  .sheet-foot { padding: 0 14px 14px; flex-shrink: 0; }
+
+  .nb-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-radius: var(--radius-sm);
+    cursor: pointer; transition: background 0.12s;
+    background: transparent; border: none; width: 100%;
+    text-align: left; font-family: inherit; font-size: 15px;
+    color: var(--text); margin-bottom: 4px;
+  }
+  .nb-item:active { background: var(--surface-2); }
+  .nb-item.active { background: var(--accent-soft); color: var(--accent); }
+  .nb-item.active .nb-item-title { font-weight: 600; }
+  .nb-item-title {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .nb-item-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+  .nb-item-del {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: transparent; border: none;
+    color: var(--text-dim); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nb-item-del:active { background: rgba(194, 86, 72, 0.12); color: var(--err); }
+
+  .source-card {
+    padding: 13px 15px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .source-card .s-title {
+    font-size: 14px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; line-height: 1.35;
+  }
+  .source-card .s-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; font-size: 11.5px; color: var(--text-dim);
+  }
+  .s-badge {
+    padding: 3px 9px; border-radius: 10px;
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .s-ready { background: rgba(110, 143, 90, 0.14); color: var(--ok); }
+  .s-processing { background: rgba(193, 154, 62, 0.16); color: var(--warn); }
+  .s-failed { background: rgba(194, 86, 72, 0.14); color: var(--err); }
+  .s-unknown { background: var(--surface-3); color: var(--text-dim); }
+
+  .add-sources {
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .add-sources textarea {
+    width: 100%; min-height: 76px;
+    padding: 11px 14px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-family: inherit; font-size: 14px;
+    resize: vertical; outline: none;
+    user-select: text; -webkit-user-select: text;
+  }
+  .add-sources textarea:focus { border-color: var(--accent); }
+  .add-sources .hint {
+    font-size: 12px; color: var(--text-dim);
+    margin-top: 8px; line-height: 1.4;
+  }
+
+  .btn-primary {
+    width: 100%; padding: 13px;
+    background: var(--accent); border: none;
+    border-radius: var(--radius-sm); color: #fffaf3;
+    font-weight: 600; font-size: 15px; font-family: inherit;
+    cursor: pointer; transition: background 0.15s, transform 0.08s;
+    margin-top: 10px;
+  }
+  .btn-primary:active:not(:disabled) { transform: scale(0.985); background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .sheet-foot .btn-primary { margin-top: 0; }
 
   .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    padding: 10px 20px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 8px; font-size: 13px; z-index: 100;
-    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    position: fixed; bottom: calc(20px + env(safe-area-inset-bottom));
+    left: 50%; transform: translate(-50%, 20px);
+    padding: 11px 20px; background: var(--text); color: var(--bg);
+    border-radius: 22px; font-size: 13.5px; font-weight: 500;
+    z-index: 200; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 90vw; text-align: center;
+    box-shadow: var(--shadow-lg);
   }
-  .toast.show { opacity: 1; }
-  .toast.err { border-color: var(--red); color: var(--red); }
-  .toast.ok { border-color: var(--green); color: var(--green); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--err); color: #fffaf3; }
+  .toast.ok { background: var(--ok); color: #fffaf3; }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="brand">
-    <a href="../../">← хаб</a>
-    NotebookLM Bridge
+<header class="topbar">
+  <a class="back" href="../../" title="Хаб">←</a>
+  <div class="brand">NotebookLM</div>
+  <div class="status checking" id="api-status"></div>
+</header>
+
+<button class="nb-pill" id="nb-pill">
+  <span class="icon">📓</span>
+  <span class="title placeholder" id="nb-title">— выбери блокнот —</span>
+  <span class="chev">▼</span>
+</button>
+
+<main class="chat" id="chat-messages"></main>
+
+<div class="dock">
+  <div class="dock-tools">
+    <button class="chip" id="chip-sources">
+      <span>📎 Источники</span>
+      <span class="chip-badge" id="sources-badge">0</span>
+    </button>
+    <button class="chip" id="chip-copy-all">
+      <span>📋 Весь чат</span>
+    </button>
   </div>
-  <div class="api-status checking" id="api-status">проверка API…</div>
+  <div class="dock-input">
+    <textarea id="question" rows="1" placeholder="Спроси что-нибудь…" disabled></textarea>
+    <button class="send" id="btn-ask" disabled>↑</button>
+  </div>
 </div>
 
-<div class="nb-row">
-  <select id="nb-select" title="Выбрать блокнот" disabled>
-    <option value="">— нет блокнотов —</option>
-  </select>
-  <button id="btn-new-notebook" title="Новый блокнот">＋</button>
-  <button id="btn-del-notebook" class="danger" title="Удалить блокнот" disabled>✕</button>
+<div class="overlay" id="overlay-nb">
+  <div class="sheet">
+    <div class="sheet-head">
+      <span>Блокноты</span>
+      <button class="sheet-close" data-close="nb">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div id="nb-list"></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn-primary" id="btn-new-notebook">＋ Новый блокнот</button>
+    </div>
+  </div>
 </div>
 
-<main class="chat">
-  <div class="chat-messages" id="chat-messages">
-    <div class="empty" id="chat-empty">
-      Выбери блокнот сверху или создай новый.<br>
-      Добавь источники внизу, потом задавай вопросы здесь.
+<div class="overlay" id="overlay-src">
+  <div class="sheet">
+    <div class="sheet-head">
+      <span>Источники</span>
+      <div class="sheet-head-actions">
+        <button class="sheet-icon" id="btn-refresh-sources" title="Обновить">⟳</button>
+        <button class="sheet-close" data-close="src">✕</button>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div id="sources-list"></div>
+      <div class="add-sources">
+        <textarea id="new-sources" placeholder="Вставь ссылки — каждая с новой строки"></textarea>
+        <button class="btn-primary" id="btn-add-sources" disabled>Добавить</button>
+        <div class="hint">Мультивыбор: перенос строки, пробел или запятая</div>
+      </div>
     </div>
   </div>
-  <div class="chat-tools">
-    <button id="btn-copy-chat" title="Скопировать весь чат">📋 Копировать весь чат</button>
-  </div>
-  <div class="chat-input">
-    <textarea id="question" placeholder="Задай вопрос по источникам..." rows="1" disabled></textarea>
-    <button class="primary" id="btn-ask" disabled>Отправить</button>
-  </div>
-</main>
-
-<section class="sources-panel" id="sources-panel">
-  <div class="sources-header" id="sources-header">
-    <div class="left">
-      <span class="chev">▼</span>
-      <span>Источники <span id="sources-count">(0)</span></span>
-    </div>
-    <div class="actions">
-      <button id="btn-refresh-sources" title="Обновить">🔄</button>
-    </div>
-  </div>
-  <div class="sources-body">
-    <div id="sources-list" class="sources-list">
-      <div class="empty" style="margin: 12px auto; font-size: 12px;">Выбери блокнот</div>
-    </div>
-    <div class="add-sources">
-      <textarea id="new-sources" placeholder="Вставь ссылки — каждая с новой строки.&#10;Поддерживаются YouTube-видео и целые плейлисты."></textarea>
-      <button id="btn-add-sources" disabled>Добавить все</button>
-      <div class="hint">Мультивыбор: разделяй переносом строки, пробелом или запятой</div>
-    </div>
-  </div>
-</section>
+</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+"use strict";
+
+const MOCK = location.protocol === "file:";
 const API = "https://144.31.38.204.sslip.io";
 const LS_ACTIVE = "nlm_active_notebook";
-const LS_CHAT = (nid) => "nlm_chat_" + nid;
+const LS_CHAT = nid => "nlm_chat_" + nid;
 
 const $ = id => document.getElementById(id);
 const state = {
@@ -290,12 +413,13 @@ const state = {
   sourcesBusy: false,
 };
 
-function toast(msg, cls = "") {
+function toast(msg, cls) {
+  cls = cls || "";
   const t = $("toast");
   t.textContent = msg;
   t.className = "toast show " + cls;
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.className = "toast " + cls, 2500);
+  t._timer = setTimeout(() => { t.className = "toast " + cls; }, 2400);
 }
 
 async function copyText(text) {
@@ -319,37 +443,78 @@ async function copyText(text) {
   }
 }
 
-function setApiStatus(text, cls) {
-  const el = $("api-status");
-  el.className = "api-status " + (cls || "");
-  el.textContent = text;
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
 }
 
+function setStatus(cls) {
+  const el = $("api-status");
+  el.className = "status " + (cls || "");
+}
+
+const mock = {
+  notebooks: [
+    { id: "n1", title: "Test - Rick Astley" },
+    { id: "n2", title: "Новый блокнот" },
+    { id: "n3", title: "Бюджетный локальный ИИ: тесты hardware-сборок для LLM" },
+    { id: "n4", title: "LLM Aspect Summarization and Automated Analysis Research" },
+  ],
+  sources: {
+    n1: [{ id: "s1", title: "Rick Astley - Never Gonna Give You Up (Official Video)", kind: "youtube", status: "ready" }],
+    n2: [],
+    n3: [
+      { id: "s2", title: "Как запустить ИИ дома и не разориться", kind: "youtube", status: "ready" },
+      { id: "s3", title: "Сборка ПК для локальных LLM 2024", kind: "youtube", status: "ready" },
+      { id: "s4", title: "GPU vs CPU for inference", kind: "youtube", status: "processing" },
+    ],
+    n4: [],
+  },
+  chats: {
+    n1: [
+      { role: "user", text: "О чём эта песня?" },
+      { role: "bot", text: "Классический хит 1987 года. Основная тема — преданность и обещание никогда не подвести человека [1, 2].\n\nПесня стала интернет-мемом благодаря рикроллингу — практике неожиданной подмены ссылки." },
+    ],
+    n3: [
+      { role: "user", text: "Что важнее для локальной LLM — GPU или CPU?" },
+      { role: "bot", text: "Для инференса LLM GPU значительно быстрее. CPU справится, но генерация токенов будет медленнее в 10-50 раз.\n\nДля бюджетной сборки ключевой параметр — объём VRAM: модель должна поместиться в видеопамять целиком, иначе скорость падает в разы из-за свопа." },
+    ],
+    n4: [],
+  },
+};
+
+async function mockApi(method, path, body) {
+  await new Promise(r => setTimeout(r, 120));
+  if (path === "/api/health") return { cli_available: true, cli_version: "mock" };
+  if (path === "/api/notebooks" && method === "GET") return { notebooks: mock.notebooks };
+  const mSrc = path.match(/^\/api\/notebooks\/([^/]+)\/sources$/);
+  if (mSrc && method === "GET") return { sources: mock.sources[mSrc[1]] || [] };
+  if (path.startsWith("/api/notebooks/") && path.endsWith("/ask") && method === "POST") {
+    return { answer: "_(это мок-ответ в превью — реальный ответ придёт с сервера)_\n\nСейчас ты видишь демонстрационный интерфейс. Здесь будет настоящий ответ NotebookLM с цитатами по источникам." };
+  }
+  return {};
+}
+
 async function api(method, path, body) {
+  if (MOCK) return mockApi(method, path, body);
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const r = await fetch(API + path, opts);
   const text = await r.text();
   let data;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  if (!r.ok) throw new Error(data.detail || data.raw || `HTTP ${r.status}`);
+  try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
+  if (!r.ok) throw new Error(data.detail || data.raw || ("HTTP " + r.status));
   return data;
 }
 
 async function checkHealth() {
-  setApiStatus("проверка API…", "checking");
+  setStatus("checking");
   try {
     const h = await api("GET", "/api/health");
-    if (h.cli_available) setApiStatus("API ok", "ok");
-    else setApiStatus("CLI недоступен", "");
+    setStatus(h.cli_available ? "ok" : "err");
   } catch (e) {
-    setApiStatus("API недоступен", "");
+    setStatus("err");
   }
 }
 
@@ -357,25 +522,54 @@ async function loadNotebooks() {
   try {
     const data = await api("GET", "/api/notebooks");
     state.notebooks = data.notebooks || [];
-    renderNotebooks();
+    renderNotebooksList();
+    renderNotebookPill();
   } catch (e) {
-    toast("Не могу получить список блокнотов: " + e.message, "err");
+    toast("Не могу получить блокноты: " + e.message, "err");
   }
 }
 
-function renderNotebooks() {
-  const sel = $("nb-select");
+function renderNotebookPill() {
+  const title = $("nb-title");
+  const nb = state.notebooks.find(n => n.id === state.activeNotebook);
+  if (nb) {
+    title.textContent = nb.title || nb.id;
+    title.classList.remove("placeholder");
+  } else {
+    title.textContent = state.notebooks.length ? "— выбери блокнот —" : "— нет блокнотов —";
+    title.classList.add("placeholder");
+  }
+}
+
+function renderNotebooksList() {
+  const box = $("nb-list");
   if (!state.notebooks.length) {
-    sel.innerHTML = '<option value="">— нет блокнотов —</option>';
-    sel.disabled = true;
-    $("btn-del-notebook").disabled = true;
+    box.innerHTML = '<div class="empty" style="padding:20px;">Пока нет блокнотов. Создай первый.</div>';
     return;
   }
-  sel.disabled = false;
-  sel.innerHTML = state.notebooks.map(nb =>
-    `<option value="${escapeHtml(nb.id)}"${nb.id === state.activeNotebook ? " selected" : ""}>${escapeHtml(nb.title || nb.id)}</option>`
-  ).join("");
-  $("btn-del-notebook").disabled = !state.activeNotebook;
+  box.innerHTML = state.notebooks.map(nb => {
+    const active = nb.id === state.activeNotebook;
+    return `
+      <button class="nb-item${active ? " active" : ""}" data-id="${escapeHtml(nb.id)}">
+        <span class="nb-item-title">${escapeHtml(nb.title || nb.id)}</span>
+        ${active ? '<span class="nb-item-dot"></span>' : ""}
+        <span class="nb-item-del" data-del="${escapeHtml(nb.id)}" title="Удалить">✕</span>
+      </button>
+    `;
+  }).join("");
+  box.querySelectorAll(".nb-item").forEach(el => {
+    el.addEventListener("click", ev => {
+      if (ev.target.closest(".nb-item-del")) return;
+      selectNotebook(el.dataset.id);
+      closeSheet("nb");
+    });
+  });
+  box.querySelectorAll(".nb-item-del").forEach(el => {
+    el.addEventListener("click", ev => {
+      ev.stopPropagation();
+      deleteNotebook(el.dataset.del);
+    });
+  });
 }
 
 async function createNotebook() {
@@ -385,32 +579,33 @@ async function createNotebook() {
     const nb = await api("POST", "/api/notebooks", { title });
     toast("Блокнот создан", "ok");
     await loadNotebooks();
-    if (nb.id) selectNotebook(nb.id);
+    if (nb.id) { selectNotebook(nb.id); closeSheet("nb"); }
   } catch (e) {
     toast("Ошибка: " + e.message, "err");
   }
 }
 
-async function deleteNotebook() {
-  const nid = state.activeNotebook;
-  if (!nid) { toast("Сначала выбери блокнот", "err"); return; }
+async function deleteNotebook(nid) {
   if (!confirm("Удалить блокнот? Все источники и история тоже удалятся.")) return;
   try {
     await api("DELETE", "/api/notebooks/" + nid);
-    localStorage.removeItem(LS_ACTIVE);
-    state.activeNotebook = null;
-    state.sources = [];
-    state.messages = [];
-    renderSources();
-    renderChat();
-    toast("Удалено", "ok");
-    await loadNotebooks();
-    if (state.notebooks.length) {
-      selectNotebook(state.notebooks[0].id);
-    } else {
+    try { localStorage.removeItem(LS_CHAT(nid)); } catch (e) {}
+    if (state.activeNotebook === nid) {
+      state.activeNotebook = null;
+      state.sources = [];
+      state.messages = [];
+      try { localStorage.removeItem(LS_ACTIVE); } catch (e) {}
+      renderNotebookPill();
+      renderChat();
+      renderSources();
       $("question").disabled = true;
       $("btn-ask").disabled = true;
       $("btn-add-sources").disabled = true;
+    }
+    toast("Удалено", "ok");
+    await loadNotebooks();
+    if (!state.activeNotebook && state.notebooks.length) {
+      selectNotebook(state.notebooks[0].id);
     }
   } catch (e) {
     toast("Ошибка: " + e.message, "err");
@@ -419,9 +614,10 @@ async function deleteNotebook() {
 
 function selectNotebook(nid) {
   state.activeNotebook = nid;
-  localStorage.setItem(LS_ACTIVE, nid);
-  state.messages = JSON.parse(localStorage.getItem(LS_CHAT(nid)) || "[]");
-  renderNotebooks();
+  try { localStorage.setItem(LS_ACTIVE, nid); } catch (e) {}
+  state.messages = loadMessages(nid);
+  renderNotebookPill();
+  renderNotebooksList();
   renderChat();
   $("question").disabled = false;
   $("btn-ask").disabled = false;
@@ -429,15 +625,118 @@ function selectNotebook(nid) {
   loadSources();
 }
 
+function loadMessages(nid) {
+  if (MOCK) return (mock.chats[nid] || []).slice();
+  try {
+    const raw = localStorage.getItem(LS_CHAT(nid));
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(m => m && typeof m.text === "string" && !m.loading && (m.role === "user" || m.role === "bot"));
+  } catch (e) {
+    console.warn("loadMessages failed", e);
+    return [];
+  }
+}
+
+function saveMessages() {
+  if (!state.activeNotebook) return;
+  if (MOCK) return;
+  try {
+    const clean = state.messages.filter(m => !m.loading);
+    localStorage.setItem(LS_CHAT(state.activeNotebook), JSON.stringify(clean));
+  } catch (e) {
+    console.warn("saveMessages failed", e);
+  }
+}
+
+function renderChat() {
+  const box = $("chat-messages");
+  if (!state.activeNotebook) {
+    box.innerHTML = `
+      <div class="empty">
+        <span class="icon">📓</span>
+        <div class="title">Блокнот не выбран</div>
+        Выбери блокнот сверху или создай новый
+      </div>`;
+    return;
+  }
+  if (!state.messages.length) {
+    box.innerHTML = `
+      <div class="empty">
+        <span class="icon">✨</span>
+        <div class="title">Пустой чат</div>
+        Добавь источники (📎 внизу) и задай вопрос
+      </div>`;
+    return;
+  }
+  box.innerHTML = state.messages.map((m, idx) => {
+    const safe = escapeHtml(m.text);
+    if (m.role === "user") {
+      return `<div class="msg-row user"><div class="msg user">${safe}</div></div>`;
+    }
+    const loadingCls = m.loading ? " loading" : "";
+    const btn = m.loading ? "" :
+      `<button class="copy-btn" data-copy="${idx}" title="Копировать">📋 Копировать</button>`;
+    return `<div class="msg-row bot"><div class="msg bot${loadingCls}">${safe}</div>${btn}</div>`;
+  }).join("");
+  box.querySelectorAll(".copy-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.copy, 10);
+      const m = state.messages[i];
+      if (m) copyText(m.text);
+    });
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function copyAllChat() {
+  if (!state.messages.length) { toast("Чат пуст", "err"); return; }
+  const nb = state.notebooks.find(n => n.id === state.activeNotebook);
+  const head = nb ? ("# " + nb.title + "\n\n") : "";
+  const body = state.messages
+    .filter(m => !m.loading)
+    .map(m => m.role === "user" ? ("## Я\n" + m.text + "\n") : ("## NotebookLM\n" + m.text + "\n"))
+    .join("\n");
+  copyText(head + body);
+}
+
+async function askQuestion() {
+  const q = $("question").value.trim();
+  if (!q || !state.activeNotebook) return;
+  $("question").value = "";
+  $("question").style.height = "auto";
+  $("btn-ask").disabled = true;
+
+  state.messages.push({ role: "user", text: q });
+  state.messages.push({ role: "bot", text: "NotebookLM думает…", loading: true });
+  renderChat();
+
+  try {
+    const res = await api("POST", "/api/notebooks/" + state.activeNotebook + "/ask", { question: q });
+    state.messages = state.messages.filter(m => !m.loading);
+    state.messages.push({ role: "bot", text: res.answer || "(пустой ответ)" });
+    saveMessages();
+    renderChat();
+  } catch (e) {
+    state.messages = state.messages.filter(m => !m.loading);
+    state.messages.push({ role: "bot", text: "⚠ Ошибка: " + e.message });
+    saveMessages();
+    renderChat();
+  } finally {
+    $("btn-ask").disabled = false;
+  }
+}
+
 async function loadSources() {
   if (!state.activeNotebook || state.sourcesBusy) return;
   state.sourcesBusy = true;
   try {
-    const data = await api("GET", `/api/notebooks/${state.activeNotebook}/sources`);
+    const data = await api("GET", "/api/notebooks/" + state.activeNotebook + "/sources");
     state.sources = data.sources || [];
     renderSources();
     const hasProcessing = state.sources.some(s => {
-      const st = (s.status || "").toLowerCase();
+      const st = String(s.status || "").toLowerCase();
       return st.includes("process") || st.includes("pending") || st.includes("queue") || st === "unknown" || st === "";
     });
     if (hasProcessing && !state.sourcesPollTimer) {
@@ -456,31 +755,30 @@ async function loadSources() {
 }
 
 function statusClass(status) {
-  const s = (status || "").toLowerCase();
-  if (s.includes("ready") || s.includes("complete") || s === "done") return "status-ready";
-  if (s.includes("process") || s.includes("pending") || s.includes("queue")) return "status-processing";
-  if (s.includes("fail") || s.includes("error")) return "status-failed";
-  return "status-unknown";
+  const s = String(status || "").toLowerCase();
+  if (s.includes("ready") || s.includes("complete") || s === "done") return "s-ready";
+  if (s.includes("process") || s.includes("pending") || s.includes("queue")) return "s-processing";
+  if (s.includes("fail") || s.includes("error")) return "s-failed";
+  return "s-unknown";
 }
 
 function renderSources() {
   const box = $("sources-list");
-  const cnt = $("sources-count");
-  cnt.textContent = "(" + state.sources.length + ")";
+  $("sources-badge").textContent = state.sources.length;
   if (!state.activeNotebook) {
-    box.innerHTML = '<div class="empty" style="margin:12px auto;font-size:12px;">Выбери блокнот</div>';
+    box.innerHTML = '<div class="empty" style="padding:20px;">Сначала выбери блокнот</div>';
     return;
   }
   if (!state.sources.length) {
-    box.innerHTML = '<div class="empty" style="margin:12px auto;font-size:12px;">Нет источников — добавь ссылки ниже</div>';
+    box.innerHTML = '<div class="empty" style="padding:20px;">Пока нет источников<br>Добавь ссылки ниже</div>';
     return;
   }
   box.innerHTML = state.sources.map(s => `
-    <div class="source-item">
-      <div class="title">${escapeHtml(s.title || s.id || "—")}</div>
-      <div class="meta">
+    <div class="source-card">
+      <div class="s-title">${escapeHtml(s.title || s.id || "—")}</div>
+      <div class="s-meta">
         <span>${escapeHtml(s.kind || "")}</span>
-        <span class="status-badge ${statusClass(s.status)}">${escapeHtml(s.status || "?")}</span>
+        <span class="s-badge ${statusClass(s.status)}">${escapeHtml(s.status || "?")}</span>
       </div>
     </div>
   `).join("");
@@ -494,113 +792,59 @@ async function addSources() {
   const urls = raw.split(/[\s,\n]+/).map(s => s.trim()).filter(s => s.startsWith("http"));
   if (!urls.length) { toast("Не нашёл ссылок", "err"); return; }
 
-  $("btn-add-sources").disabled = true;
-  $("btn-add-sources").textContent = `Добавляю ${urls.length}...`;
-  toast(`Отправлено ${urls.length} ссылок (может занять минуту)`, "");
+  const btn = $("btn-add-sources");
+  btn.disabled = true;
+  btn.textContent = "Добавляю " + urls.length + "…";
+  toast("Отправлено " + urls.length + " ссылок — может занять минуту");
 
   try {
-    const res = await api("POST", `/api/notebooks/${state.activeNotebook}/sources`, { urls });
+    const res = await api("POST", "/api/notebooks/" + state.activeNotebook + "/sources", { urls });
     const ok = (res.added || []).length;
     const err = (res.errors || []).length;
     if (err) {
-      toast(`Добавлено ${ok}, ошибок ${err}`, "err");
+      toast("Добавлено " + ok + ", ошибок " + err, "err");
     } else {
-      toast(`Добавлено ${ok}`, "ok");
+      toast("Добавлено " + ok, "ok");
       $("new-sources").value = "";
     }
     loadSources();
   } catch (e) {
     toast("Ошибка: " + e.message, "err");
   } finally {
-    $("btn-add-sources").disabled = false;
-    $("btn-add-sources").textContent = "Добавить все";
+    btn.disabled = false;
+    btn.textContent = "Добавить";
   }
 }
 
-function renderChat() {
-  const box = $("chat-messages");
-  if (!state.messages.length) {
-    box.innerHTML = '<div class="empty" id="chat-empty">Выбери блокнот сверху или создай новый.<br>Добавь источники внизу, потом задавай вопросы здесь.</div>';
-    return;
-  }
-  box.innerHTML = state.messages.map((m, idx) => {
-    if (m.role === "user") {
-      return `<div class="msg-wrap user"><div class="msg msg-user">${escapeHtml(m.text)}</div></div>`;
-    }
-    const loading = m.loading ? " loading" : "";
-    const copyBtn = m.loading ? "" :
-      `<button class="msg-copy" data-copy-idx="${idx}" title="Скопировать">📋 Копировать</button>`;
-    return `<div class="msg-wrap bot"><div class="msg msg-bot${loading}">${escapeHtml(m.text)}</div>${copyBtn}</div>`;
-  }).join("");
-  box.querySelectorAll(".msg-copy").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const i = parseInt(btn.dataset.copyIdx, 10);
-      const m = state.messages[i];
-      if (m) copyText(m.text);
-    });
+function openSheet(which) {
+  document.getElementById("overlay-" + which).classList.add("open");
+}
+function closeSheet(which) {
+  document.getElementById("overlay-" + which).classList.remove("open");
+}
+
+document.querySelectorAll(".overlay").forEach(ov => {
+  ov.addEventListener("click", ev => {
+    if (ev.target === ov) ov.classList.remove("open");
   });
-  box.scrollTop = box.scrollHeight;
-}
+});
+document.querySelectorAll("[data-close]").forEach(btn => {
+  btn.addEventListener("click", () => closeSheet(btn.dataset.close));
+});
 
-function saveChat() {
-  if (!state.activeNotebook) return;
-  localStorage.setItem(LS_CHAT(state.activeNotebook), JSON.stringify(state.messages));
-}
-
-function copyWholeChat() {
-  if (!state.messages.length) { toast("Чат пуст", "err"); return; }
-  const nb = state.notebooks.find(n => n.id === state.activeNotebook);
-  const head = nb ? `# ${nb.title}\n\n` : "";
-  const body = state.messages.filter(m => !m.loading).map(m => {
-    if (m.role === "user") return `## Я\n${m.text}\n`;
-    return `## NotebookLM\n${m.text}\n`;
-  }).join("\n");
-  copyText(head + body);
-}
-
-async function askQuestion() {
-  const q = $("question").value.trim();
-  if (!q || !state.activeNotebook) return;
-  $("question").value = "";
-  $("question").style.height = "auto";
-  $("btn-ask").disabled = true;
-
-  state.messages.push({ role: "user", text: q });
-  state.messages.push({ role: "bot", text: "NotebookLM думает…", loading: true });
-  saveChat();
-  renderChat();
-
-  try {
-    const res = await api("POST", `/api/notebooks/${state.activeNotebook}/ask`, { question: q });
-    state.messages = state.messages.filter(m => !m.loading);
-    state.messages.push({ role: "bot", text: res.answer || "(пустой ответ)" });
-    saveChat();
-    renderChat();
-  } catch (e) {
-    state.messages = state.messages.filter(m => !m.loading);
-    state.messages.push({ role: "bot", text: "⚠ Ошибка: " + e.message });
-    saveChat();
-    renderChat();
-  } finally {
-    $("btn-ask").disabled = false;
-  }
-}
-
-$("btn-new-notebook").onclick = createNotebook;
-$("btn-del-notebook").onclick = deleteNotebook;
-$("btn-refresh-sources").onclick = (e) => { e.stopPropagation(); loadSources(); };
-$("btn-add-sources").onclick = addSources;
-$("btn-ask").onclick = askQuestion;
-$("btn-copy-chat").onclick = copyWholeChat;
-
-$("nb-select").onchange = (e) => {
-  const v = e.target.value;
-  if (v) selectNotebook(v);
-};
-
-$("sources-header").onclick = () => {
-  $("sources-panel").classList.toggle("collapsed");
-};
+$("nb-pill").addEventListener("click", () => {
+  renderNotebooksList();
+  openSheet("nb");
+});
+$("chip-sources").addEventListener("click", () => {
+  renderSources();
+  openSheet("src");
+});
+$("chip-copy-all").addEventListener("click", copyAllChat);
+$("btn-new-notebook").addEventListener("click", createNotebook);
+$("btn-refresh-sources").addEventListener("click", () => loadSources());
+$("btn-add-sources").addEventListener("click", addSources);
+$("btn-ask").addEventListener("click", askQuestion);
 
 $("question").addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -608,17 +852,17 @@ $("question").addEventListener("keydown", e => {
     askQuestion();
   }
 });
-
 $("question").addEventListener("input", e => {
   const t = e.target;
   t.style.height = "auto";
-  t.style.height = Math.min(t.scrollHeight, 140) + "px";
+  t.style.height = Math.min(t.scrollHeight, 130) + "px";
 });
 
 (async function init() {
   await checkHealth();
   await loadNotebooks();
-  const saved = localStorage.getItem(LS_ACTIVE);
+  let saved = null;
+  try { saved = localStorage.getItem(LS_ACTIVE); } catch (e) {}
   if (saved && state.notebooks.find(n => n.id === saved)) {
     selectNotebook(saved);
   } else if (state.notebooks.length) {
