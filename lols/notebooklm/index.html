@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube → NotebookLM</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; min-height: 100vh;
+    padding: 20px; line-height: 1.5;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  .back {
+    display: inline-block; color: #58a6ff; text-decoration: none;
+    font-size: 13px; margin-bottom: 16px;
+  }
+  .back:hover { text-decoration: underline; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #8b949e; font-size: 13px; margin-bottom: 24px; }
+
+  .input-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  input[type=text], textarea {
+    flex: 1; min-width: 260px; padding: 11px 14px; border-radius: 8px;
+    border: 1px solid #30363d; background: #161b22; color: #e6edf3;
+    font-size: 14px; font-family: inherit; outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus, textarea:focus { border-color: #58a6ff; }
+  textarea { resize: vertical; min-height: 60px; }
+
+  button {
+    padding: 11px 18px; border-radius: 8px; font-size: 14px;
+    border: 1px solid #30363d; background: #21262d; color: #e6edf3;
+    cursor: pointer; font-weight: 500; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  button:hover:not(:disabled) { background: #30363d; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary {
+    background: #238636; border-color: #238636; color: #fff;
+  }
+  button.primary:hover:not(:disabled) { background: #2ea043; }
+  button.accent {
+    background: #1f6feb; border-color: #1f6feb; color: #fff;
+  }
+  button.accent:hover:not(:disabled) { background: #388bfd; }
+
+  .status {
+    font-size: 13px; color: #8b949e; min-height: 20px;
+    margin: 12px 0; display: flex; align-items: center; gap: 8px;
+  }
+  .status.err { color: #f85149; }
+  .status.ok { color: #3fb950; }
+  .status.loading::before {
+    content: ""; width: 12px; height: 12px; border: 2px solid #30363d;
+    border-top-color: #58a6ff; border-radius: 50%;
+    animation: spin 0.8s linear infinite; display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .panel { margin-top: 20px; display: none; }
+  .panel.show { display: block; }
+  .panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; flex-wrap: wrap; gap: 8px;
+  }
+  .panel-title { font-size: 13px; color: #8b949e; }
+  .actions { display: flex; gap: 6px; }
+  .actions button { padding: 6px 12px; font-size: 12px; }
+
+  pre {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px; max-height: 500px; overflow: auto;
+    white-space: pre-wrap; font-size: 13px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    line-height: 1.6;
+  }
+  .answer {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px; font-size: 14px; line-height: 1.7; white-space: pre-wrap;
+  }
+  .meta { font-size: 12px; color: #6e7681; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="../../">← назад в хаб</a>
+  <h1>🎬 YouTube → NotebookLM</h1>
+  <div class="sub">Вставь ссылку — получи транскрипт или задай вопрос по содержанию</div>
+
+  <div class="input-row">
+    <input id="url" type="text" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
+  </div>
+
+  <div class="input-row">
+    <button class="primary" id="btn-transcript">📄 Получить транскрипт</button>
+    <button class="accent" id="btn-toggle-ask">💬 Задать вопрос</button>
+  </div>
+
+  <div id="ask-block" style="display:none; margin-bottom: 12px;">
+    <textarea id="question" placeholder="Например: о чём это видео? дай краткое саммари. выдели ключевые идеи."></textarea>
+    <div style="margin-top: 8px;">
+      <button class="accent" id="btn-ask">Отправить вопрос</button>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="panel" id="panel-transcript">
+    <div class="panel-header">
+      <div class="panel-title" id="transcript-meta"></div>
+      <div class="actions">
+        <button id="btn-copy">📋 Копировать</button>
+        <button id="btn-download">⬇️ .txt</button>
+      </div>
+    </div>
+    <pre id="transcript-text"></pre>
+  </div>
+
+  <div class="panel" id="panel-answer">
+    <div class="panel-header">
+      <div class="panel-title">Ответ NotebookLM</div>
+      <div class="actions">
+        <button id="btn-copy-answer">📋 Копировать</button>
+      </div>
+    </div>
+    <div class="answer" id="answer-text"></div>
+  </div>
+</div>
+
+<script>
+  // ⚠️ ЗАМЕНИ если сменишь VPS/домен
+  const API = "https://144.31.38.204.sslip.io";
+
+  const $ = id => document.getElementById(id);
+  let lastTranscript = null;
+  let lastAnswer = null;
+
+  function setStatus(text, cls = "") {
+    $("status").className = "status " + cls;
+    $("status").textContent = text;
+  }
+
+  function setBusy(busy) {
+    ["btn-transcript", "btn-ask", "btn-toggle-ask"].forEach(id => {
+      $(id).disabled = busy;
+    });
+  }
+
+  function showPanel(id) {
+    ["panel-transcript", "panel-answer"].forEach(p => {
+      $(p).classList.toggle("show", p === id);
+    });
+  }
+
+  async function getTranscript() {
+    const url = $("url").value.trim();
+    if (!url) { setStatus("Вставь ссылку на YouTube", "err"); return; }
+
+    setBusy(true);
+    setStatus("Обрабатываю видео… обычно 10-20 секунд", "loading");
+
+    try {
+      const r = await fetch(API + "/api/transcript", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || "Ошибка сервера");
+
+      lastTranscript = data;
+      $("transcript-meta").textContent = `video_id: ${data.video_id} · ${data.char_count} символов`;
+      $("transcript-text").textContent = data.text;
+      showPanel("panel-transcript");
+      setStatus("Готово ✓", "ok");
+    } catch (e) {
+      setStatus("Ошибка: " + e.message, "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function askQuestion() {
+    const url = $("url").value.trim();
+    const question = $("question").value.trim();
+    if (!url) { setStatus("Сначала вставь ссылку на YouTube", "err"); return; }
+    if (!question) { setStatus("Напиши вопрос", "err"); return; }
+
+    setBusy(true);
+    setStatus("NotebookLM думает… обычно 20-40 секунд", "loading");
+
+    try {
+      const r = await fetch(API + "/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, question })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || "Ошибка сервера");
+
+      lastAnswer = data;
+      $("answer-text").textContent = data.answer;
+      showPanel("panel-answer");
+      setStatus("Готово ✓", "ok");
+    } catch (e) {
+      setStatus("Ошибка: " + e.message, "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Кнопки
+  $("btn-transcript").onclick = getTranscript;
+  $("btn-ask").onclick = askQuestion;
+
+  $("btn-toggle-ask").onclick = () => {
+    const block = $("ask-block");
+    const visible = block.style.display !== "none";
+    block.style.display = visible ? "none" : "block";
+    if (!visible) $("question").focus();
+  };
+
+  $("url").addEventListener("keydown", e => {
+    if (e.key === "Enter") getTranscript();
+  });
+
+  $("btn-copy").onclick = () => {
+    if (!lastTranscript) return;
+    navigator.clipboard.writeText(lastTranscript.text);
+    $("btn-copy").textContent = "✅ Скопировано";
+    setTimeout(() => $("btn-copy").textContent = "📋 Копировать", 1500);
+  };
+
+  $("btn-download").onclick = () => {
+    if (!lastTranscript) return;
+    const blob = new Blob([lastTranscript.text], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `transcript_${lastTranscript.video_id}.txt`;
+    a.click();
+  };
+
+  $("btn-copy-answer").onclick = () => {
+    if (!lastAnswer) return;
+    navigator.clipboard.writeText(lastAnswer.answer);
+    $("btn-copy-answer").textContent = "✅ Скопировано";
+    setTimeout(() => $("btn-copy-answer").textContent = "📋 Копировать", 1500);
+  };
+</script>
+</body>
+</html>
