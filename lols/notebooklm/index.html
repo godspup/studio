@@ -350,6 +350,18 @@
   .msg.bot strong { font-weight: 600; }
   .msg.bot em { font-style: italic; }
 
+  .source-card .s-head { display: flex; align-items: flex-start; gap: 8px; }
+  .source-card .s-head .s-title { flex: 1; min-width: 0; }
+  .source-card .s-del {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: transparent; border: none;
+    color: var(--text-dim); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .source-card .s-del:active { background: rgba(194, 86, 72, 0.12); color: var(--err); }
+
 </style>
 </head>
 <body>
@@ -522,15 +534,39 @@ async function mockApi(method, path, body) {
   return {};
 }
 
+function errorText(e) {
+  if (!e) return "Неизвестная ошибка";
+  if (e.isAuth) return "🔐 " + e.message;
+  return "⚠ " + e.message;
+}
+
+function toastError(e) {
+  if (e && e.isAuth) setStatus("err");
+  toast(e && e.message ? e.message : "Неизвестная ошибка", "err");
+}
+
 async function api(method, path, body) {
   if (MOCK) return mockApi(method, path, body);
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body !== undefined) opts.body = JSON.stringify(body);
-  const r = await fetch(API + path, opts);
+  let r;
+  try {
+    r = await fetch(API + path, opts);
+  } catch (e) {
+    throw new Error("Нет связи с сервером. Проверь интернет или попробуй позже.");
+  }
   const text = await r.text();
   let data;
   try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
-  if (!r.ok) throw new Error(data.detail || data.raw || ("HTTP " + r.status));
+  if (!r.ok) {
+    const raw = data.detail || data.raw || ("HTTP " + r.status);
+    if (r.status === 401 || /auth_expired|master[- ]?token|authentication error|perform_oauth|re-bootstrap/i.test(String(raw))) {
+      const err = new Error("Ошибка авторизации. Google выкинул сессию. Скажи godspup чтобы залогинился снова (nlm-relogin на сервере).");
+      err.isAuth = true;
+      throw err;
+    }
+    throw new Error(String(raw));
+  }
   return data;
 }
 
@@ -551,7 +587,7 @@ async function loadNotebooks() {
     renderNotebooksList();
     renderNotebookPill();
   } catch (e) {
-    toast("Не могу получить блокноты: " + e.message, "err");
+    toastError(e);
   }
 }
 
@@ -607,7 +643,7 @@ async function createNotebook() {
     await loadNotebooks();
     if (nb.id) { selectNotebook(nb.id); closeSheet("nb"); }
   } catch (e) {
-    toast("Ошибка: " + e.message, "err");
+    toastError(e);
   }
 }
 
@@ -634,7 +670,7 @@ async function deleteNotebook(nid) {
       selectNotebook(state.notebooks[0].id);
     }
   } catch (e) {
-    toast("Ошибка: " + e.message, "err");
+    toastError(e);
   }
 }
 
@@ -858,7 +894,8 @@ async function askQuestion() {
     const res = await api("POST", "/api/notebooks/" + nid + "/ask", { question: q });
     saveAnswer(res.answer || "(пустой ответ)");
   } catch (e) {
-    saveAnswer("⚠ Ошибка: " + e.message);
+    if (e && e.isAuth) setStatus("err");
+    saveAnswer(errorText(e));
   } finally {
     clearTimeout(askQuestion._timer);
     askQuestion._timer = null;
@@ -913,16 +950,36 @@ function renderSources() {
   }
   box.innerHTML = state.sources.map(s => `
     <div class="source-card">
-      <div class="s-title">${escapeHtml(s.title || s.id || "—")}</div>
+      <div class="s-head">
+        <div class="s-title">${escapeHtml(s.title || s.id || "—")}</div>
+        <button class="s-del" data-sid="${escapeHtml(s.id)}" title="Удалить источник">✕</button>
+      </div>
       <div class="s-meta">
         <span>${escapeHtml(s.kind || "")}</span>
         <span class="s-badge ${statusClass(s.status)}">${escapeHtml(s.status || "?")}</span>
       </div>
     </div>
   `).join("");
+  box.querySelectorAll(".s-del").forEach(btn => {
+    btn.addEventListener("click", () => deleteSource(btn.dataset.sid));
+  });
 }
 
 async function addSources() {
+
+async function deleteSource(sid) {
+  if (!state.activeNotebook || !sid) return;
+  const nid = state.activeNotebook;
+  if (!confirm("Удалить этот источник?")) return;
+  try {
+    await api("DELETE", "/api/notebooks/" + nid + "/sources/" + encodeURIComponent(sid));
+    toast("Источник удалён", "ok");
+    loadSources();
+  } catch (e) {
+    toastError(e);
+  }
+}
+
   const raw = $("new-sources").value.trim();
   if (!raw) { toast("Вставь хотя бы одну ссылку", "err"); return; }
   if (!state.activeNotebook) { toast("Сначала выбери блокнот", "err"); return; }
@@ -947,7 +1004,7 @@ async function addSources() {
     }
     loadSources();
   } catch (e) {
-    toast("Ошибка: " + e.message, "err");
+    toastError(e);
   } finally {
     btn.disabled = false;
     btn.textContent = "Добавить";
