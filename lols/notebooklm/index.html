@@ -611,17 +611,19 @@ function renderNotebooksList() {
   }
   box.innerHTML = state.notebooks.map(nb => {
     const active = nb.id === state.activeNotebook;
-    return `
-      <button class="nb-item${active ? " active" : ""}" data-id="${escapeHtml(nb.id)}">
-        <span class="nb-item-title">${escapeHtml(nb.title || nb.id)}</span>
-        ${active ? '<span class="nb-item-dot"></span>' : ""}
-        <span class="nb-item-del" data-del="${escapeHtml(nb.id)}" title="Удалить">✕</span>
-      </button>
-    `;
+    const pending = !!nb._pending;
+    const cls = "nb-item" + (active ? " active" : "") + (pending ? " pending" : "");
+    const dot = (active && !pending) ? '<span class="nb-item-dot"></span>' : "";
+    const del = pending ? "" : '<span class="nb-item-del" data-del="' + escapeHtml(nb.id) + '" title="Удалить">✕</span>';
+    const t = escapeHtml(nb.title || nb.id) + (pending ? " · создаётся…" : "");
+    return '<button class="' + cls + '" data-id="' + escapeHtml(nb.id) + '">' +
+           '<span class="nb-item-title">' + t + '</span>' + dot + del + '</button>';
   }).join("");
   box.querySelectorAll(".nb-item").forEach(el => {
     el.addEventListener("click", ev => {
       if (ev.target.closest(".nb-item-del")) return;
+      const nb = state.notebooks.find(n => n.id === el.dataset.id);
+      if (nb && nb._pending) { toast("Блокнот ещё создаётся…"); return; }
       selectNotebook(el.dataset.id);
       closeSheet("nb");
     });
@@ -629,6 +631,7 @@ function renderNotebooksList() {
   box.querySelectorAll(".nb-item-del").forEach(el => {
     el.addEventListener("click", ev => {
       ev.stopPropagation();
+      ev.preventDefault();
       deleteNotebook(el.dataset.del);
     });
   });
@@ -637,39 +640,59 @@ function renderNotebooksList() {
 async function createNotebook() {
   const title = prompt("Название блокнота:", "Новый блокнот");
   if (!title) return;
+  const tmpId = "tmp_" + Date.now();
+  state.notebooks = [{ id: tmpId, title: title, _pending: true }, ...state.notebooks];
+  renderNotebooksList();
   try {
     const nb = await api("POST", "/api/notebooks", { title });
-    toast("Блокнот создан", "ok");
-    await loadNotebooks();
-    if (nb.id) { selectNotebook(nb.id); closeSheet("nb"); }
+    state.notebooks = state.notebooks.filter(n => n.id !== tmpId);
+    if (nb && nb.id) {
+      state.notebooks = [nb, ...state.notebooks];
+      renderNotebooksList();
+      toast("Блокнот создан", "ok");
+      selectNotebook(nb.id);
+      closeSheet("nb");
+    } else {
+      renderNotebooksList();
+      toast("Сервер не вернул id блокнота", "err");
+    }
   } catch (e) {
+    state.notebooks = state.notebooks.filter(n => n.id !== tmpId);
+    renderNotebooksList();
     toastError(e);
   }
 }
 
 async function deleteNotebook(nid) {
   if (!confirm("Удалить блокнот? Все источники и история тоже удалятся.")) return;
+  const wasActive = state.activeNotebook === nid;
+  const removed = state.notebooks.find(n => n.id === nid) || null;
+  state.notebooks = state.notebooks.filter(n => n.id !== nid);
+  if (wasActive) {
+    state.activeNotebook = null;
+    state.sources = [];
+    state.messages = [];
+    renderNotebookPill();
+    renderChat();
+    renderSources();
+    $("question").disabled = true;
+    $("btn-ask").disabled = true;
+    $("btn-add-sources").disabled = true;
+    try { localStorage.removeItem(LS_ACTIVE); } catch (e) {}
+  }
+  renderNotebooksList();
+  if (wasActive && state.notebooks.length) {
+    const first = state.notebooks.find(n => !n._pending) || state.notebooks[0];
+    if (first) selectNotebook(first.id);
+  }
   try {
     await api("DELETE", "/api/notebooks/" + nid);
     try { localStorage.removeItem(LS_CHAT(nid)); } catch (e) {}
-    if (state.activeNotebook === nid) {
-      state.activeNotebook = null;
-      state.sources = [];
-      state.messages = [];
-      try { localStorage.removeItem(LS_ACTIVE); } catch (e) {}
-      renderNotebookPill();
-      renderChat();
-      renderSources();
-      $("question").disabled = true;
-      $("btn-ask").disabled = true;
-      $("btn-add-sources").disabled = true;
-    }
     toast("Удалено", "ok");
-    await loadNotebooks();
-    if (!state.activeNotebook && state.notebooks.length) {
-      selectNotebook(state.notebooks[0].id);
-    }
   } catch (e) {
+    if (removed) state.notebooks = [removed, ...state.notebooks];
+    renderNotebooksList();
+    if (wasActive) selectNotebook(nid);
     toastError(e);
   }
 }
@@ -966,20 +989,6 @@ function renderSources() {
 }
 
 async function addSources() {
-
-async function deleteSource(sid) {
-  if (!state.activeNotebook || !sid) return;
-  const nid = state.activeNotebook;
-  if (!confirm("Удалить этот источник?")) return;
-  try {
-    await api("DELETE", "/api/notebooks/" + nid + "/sources/" + encodeURIComponent(sid));
-    toast("Источник удалён", "ok");
-    loadSources();
-  } catch (e) {
-    toastError(e);
-  }
-}
-
   const raw = $("new-sources").value.trim();
   if (!raw) { toast("Вставь хотя бы одну ссылку", "err"); return; }
   if (!state.activeNotebook) { toast("Сначала выбери блокнот", "err"); return; }
@@ -1008,6 +1017,27 @@ async function deleteSource(sid) {
   } finally {
     btn.disabled = false;
     btn.textContent = "Добавить";
+  }
+}
+
+async function deleteSource(sid) {
+  if (!state.activeNotebook) return;
+  if (!sid) {
+    toast("У источника нет ID — не могу удалить. Скажи godspup чтобы посмотрел ответ CLI.", "err");
+    return;
+  }
+  const nid = state.activeNotebook;
+  if (!confirm("Удалить этот источник?")) return;
+  const backup = state.sources.slice();
+  state.sources = state.sources.filter(s => s.id !== sid);
+  renderSources();
+  try {
+    await api("DELETE", "/api/notebooks/" + nid + "/sources/" + encodeURIComponent(sid));
+    toast("Источник удалён", "ok");
+  } catch (e) {
+    state.sources = backup;
+    renderSources();
+    toastError(e);
   }
 }
 
